@@ -429,7 +429,7 @@ function IncomingCard({
     <div className="min-w-0">
       <PatientCard
         patient={patientFromIncoming(patient)}
-        locationLabel={patient.eta ? `ETA ${patient.eta}` : "Incoming"}
+        locationLabel={[patient.plannedPodName ? `Planned: ${patient.plannedPodName}` : "Incoming", patient.eta ? `ETA ${patient.eta}` : ""].filter(Boolean).join(" · ")}
         source={disabled ? undefined : { kind: "incoming", incomingId: patient.id }}
         onEdit={disabled ? undefined : onEdit}
       />
@@ -919,6 +919,8 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
   const [newPatientSource, setNewPatientSource] = useState("");
   const [newPatientEta, setNewPatientEta] = useState("");
   const [newPatientAssignPod, setNewPatientAssignPod] = useState("");
+  const [newPatientPlannedPod, setNewPatientPlannedPod] = useState("");
+  const [duplicateBib, setDuplicateBib] = useState<string>();
   const [newPatientMessage, setNewPatientMessage] = useState("");
   const [editPatient, setEditPatient] = useState<EditPatientRef | null>(null);
   const [editPatientBib, setEditPatientBib] = useState("");
@@ -927,6 +929,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
   const [editPatientOtherComplaint, setEditPatientOtherComplaint] = useState("");
   const [editPatientStatus, setEditPatientStatus] = useState("");
   const [editPatientPod, setEditPatientPod] = useState("");
+  const [editPatientPlannedPod, setEditPatientPlannedPod] = useState("");
   const [editPatientMessage, setEditPatientMessage] = useState("");
   const [editingPod, setEditingPod] = useState<string | null>(null);
   const [incomingExpanded, setIncomingExpanded] = useState(false);
@@ -1096,6 +1099,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
     setNewPatientSource("");
     setNewPatientEta("");
     setNewPatientAssignPod("");
+    setNewPatientPlannedPod("");
   };
 
   const addIncomingPatient = async (e: React.FormEvent) => {
@@ -1106,6 +1110,11 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
     if (!bib || (newPatientComplaintChoice === otherComplaintValue && !complaint)) return;
     setNewPatientMessage("");
 
+    if (incomingQueue.some(p => p.bib.trim().toLowerCase() === bib.toLowerCase()) || pods.some(p => p.beds.some(b => b.bib?.trim().toLowerCase() === bib.toLowerCase()))) {
+      setDuplicateBib(bib);
+      return;
+    }
+
     const patient: Incoming = {
       id: `${Date.now()}-${bib}`,
       bib,
@@ -1114,6 +1123,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
       operationalStatus: newPatientStatus.trim() || undefined,
       source: newPatientSource.trim() || undefined,
       eta: newPatientEta.trim() || undefined,
+      plannedPodId: newPatientAssignPod ? "" : newPatientPlannedPod,
     };
 
     if (connected) {
@@ -1204,6 +1214,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
     setEditPatientOtherComplaint(complaint.other);
     setEditPatientStatus(bed.operationalStatus ?? "");
     setEditPatientPod(podId);
+    setEditPatientPlannedPod("");
     setEditPatientMessage("");
   };
 
@@ -1216,6 +1227,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
     setEditPatientOtherComplaint(complaint.other);
     setEditPatientStatus(patient.operationalStatus ?? "");
     setEditPatientPod("");
+    setEditPatientPlannedPod(patient.plannedPodId ?? "");
     setEditPatientMessage("");
   };
 
@@ -1241,7 +1253,8 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
         editPatientComplaintChoice !== complaint.choice ||
         editPatientOtherComplaint !== complaint.other ||
         editPatientStatus !== (original.operationalStatus ?? "") ||
-        editPatientPod !== (editPatient?.kind === "bed" ? editPatient.podId : ""));
+        editPatientPod !== (editPatient?.kind === "bed" ? editPatient.podId : "") ||
+        (editPatient?.kind === "incoming" && editPatientPlannedPod !== ((original as Incoming).plannedPodId ?? "")));
     if (!dirty || window.confirm("Discard unsaved patient changes?")) finishPatientEdit();
   };
 
@@ -1254,6 +1267,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
       newPatientSource ||
       newPatientEta ||
       newPatientAssignPod ||
+      newPatientPlannedPod ||
       newPatientTriage !== "untriaged";
     if (dirty && !window.confirm("Discard this new patient?")) return;
     resetPatientForm();
@@ -1271,6 +1285,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
       complaint:
         complaintFromSelection(editPatientComplaintChoice, editPatientOtherComplaint) || undefined,
       operationalStatus: editPatientStatus.trim() || undefined,
+      ...(editPatient.kind === "incoming" ? { plannedPodId: editPatientPod ? "" : editPatientPlannedPod } : {}),
     };
 
     if (connected) {
@@ -1558,6 +1573,21 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
     );
   };
 
+  const plannedPodField = (value: string, change: (value: string) => void) => (
+    <label className="flex flex-col gap-1">
+      Preassign Pod (Incoming)
+      <select value={value} onChange={event => change(event.target.value)} className="min-h-11 rounded-sm border border-border bg-background px-2">
+        <option value="">No planned pod</option>
+        {pods.filter(pod => !isPoolPod(pod)).map(pod => <option key={pod.id} value={pod.id} disabled={pod.closed}>{pod.name}{pod.closed ? " (closed)" : ""}</option>)}
+      </select>
+      <span className="text-xs text-muted-foreground">Plans a destination only. No bed is reserved and no medical timer starts.</span>
+    </label>
+  );
+  const duplicateIncoming = incomingQueue.find(patient => connected?.duplicateVisitId ? patient.id === connected.duplicateVisitId : !!duplicateBib && patient.bib.trim().toLowerCase() === duplicateBib.toLowerCase());
+  const duplicatePod = pods.find(pod => pod.beds.some(bed => !bed.reserved && (connected?.duplicateVisitId ? bed.visitId === connected.duplicateVisitId : !!duplicateBib && bed.bib?.trim().toLowerCase() === duplicateBib.toLowerCase())));
+  const duplicateBed = duplicatePod?.beds.find(bed => !bed.reserved && (connected?.duplicateVisitId ? bed.visitId === connected.duplicateVisitId : !!duplicateBib && bed.bib?.trim().toLowerCase() === duplicateBib.toLowerCase()));
+  const dismissDuplicate = () => { setDuplicateBib(undefined); connected?.dismissDuplicate?.(); setNewPatientMessage(""); setEditPatientMessage(""); };
+
   const summary = [
     { label: "Current time", value: currentClock, tone: "text-signal" },
     { label: "Current census", value: totals.currentCensus, tone: "text-foreground" },
@@ -1799,6 +1829,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                         })}
                       </select>
                     </label>
+                    {connected && !newPatientAssignPod && plannedPodField(newPatientPlannedPod, setNewPatientPlannedPod)}
                     <label>
                       Triage
                       <select
@@ -2140,6 +2171,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                           })}
                         </select>
                       </label>
+                      {connected && editPatient.kind === "incoming" && !editPatientPod && plannedPodField(editPatientPlannedPod, setEditPatientPlannedPod)}
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="submit"
@@ -2260,6 +2292,24 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
             </DialogContent>
           </Dialog>
         )}
+        <Dialog open={!!duplicateBib || !!connected?.duplicateVisitId} onOpenChange={open => { if (!open) dismissDuplicate(); }}>
+          <DialogContent>
+            <DialogTitle>Patient already on board</DialogTitle>
+            <DialogDescription>
+              This race number already belongs to an active patient{duplicateIncoming ? " in Incoming" : duplicateBed ? ` in ${duplicatePod?.name}, bed ${duplicateBed.label}` : ""}. A second entry was not saved. Open the existing patient to update or assign them.
+            </DialogDescription>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" className="min-h-11 rounded-sm border border-border px-3" onClick={dismissDuplicate}>Back to form</button>
+              {(duplicateIncoming || duplicateBed) && <button type="button" className="min-h-11 rounded-sm bg-signal px-3 font-semibold text-background" onClick={() => {
+                setAddingPatient(false);
+                resetPatientForm();
+                dismissDuplicate();
+                if (duplicateIncoming) startIncomingEdit(duplicateIncoming);
+                else if (duplicatePod && duplicateBed) startPatientEdit(duplicatePod.id, duplicateBed);
+              }}>Open existing patient</button>}
+            </div>
+          </DialogContent>
+        </Dialog>
       </PatientMovement>
     </DispositionActionContext.Provider>
     </ComplaintOptionsContext.Provider>

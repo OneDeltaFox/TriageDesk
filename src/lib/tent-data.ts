@@ -35,6 +35,8 @@ export function isPoolPod(pod: Pod): boolean {
 }
 
 export type Incoming = {
+  plannedPodId?: string | undefined;
+  plannedPodName?: string | undefined;
   id: string;
   bib: string;
   source?: string | undefined;

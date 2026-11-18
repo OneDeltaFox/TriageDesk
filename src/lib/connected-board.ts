@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { PatientRef } from "@/components/patient-movement";
 import type { Pod, Incoming, Disposition, Triage, DispositionCategory } from "./tent-data";
 
-export type PatientDetails = { bib: string; triage: Triage; complaint?: string | undefined; operationalStatus?: string | undefined; source?: string | undefined; eta?: string | undefined };
+export type PatientDetails = { bib: string; triage: Triage; complaint?: string | undefined; operationalStatus?: string | undefined; source?: string | undefined; eta?: string | undefined; plannedPodId?: string | undefined };
 export type BoardCommand =
   | { action: "save"; ref?: PatientRef; details: PatientDetails; bed?: string }
   | { action: "move"; ref: PatientRef; bed: string }
@@ -15,4 +15,6 @@ export type ConnectedBoard = {
   complaints?: string[];
   readOnly: boolean;
   onEditPod?: (podId: string) => void;
+  duplicateVisitId?: string | undefined;
+  dismissDuplicate?: () => void;
 };
