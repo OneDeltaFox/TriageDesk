@@ -30,7 +30,7 @@ function SignIn() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [mode, setMode] = useState<"password" | "link" | "reset">("password");
+  const [mode, setMode] = useState<"password" | "link" | "reset" | "signup" | "verify">("password");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [editingPassword, setEditingPassword] = useState(false);
@@ -70,10 +70,21 @@ function SignIn() {
     setError("");
     setMessage("");
     try {
+      if (mode === "signup" || mode === "verify") {
+        if (mode === "signup" && password !== confirmation) { setError("Passwords do not match."); return; }
+        const result = mode === "signup"
+          ? await client.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: redirectTo } })
+          : await client.auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: redirectTo } });
+        setPassword(""); setConfirmation("");
+        if (result.error) setError("Unable to send verification email. Please wait a moment and try again. If you already have an account, sign in or reset your password.");
+        else { setMode("verify"); setMessage("Check your email to verify your account. Open the link in this browser. If you already have an account, sign in or reset your password instead."); }
+        return;
+      }
       if (mode === "password") {
         const { error: authError } = await client.auth.signInWithPassword({ email: email.trim(), password });
         setPassword("");
-        if (authError) setError("Unable to sign in. Check your email and password, or reset your password.");
+        if (authError?.code === "email_not_confirmed") { setMode("verify"); setError("Verify your email before signing in. You can request a fresh verification email below."); }
+        else if (authError) setError("Unable to sign in. Check your email and password, or reset your password.");
         return;
       }
       if (mode === "reset") {
@@ -147,7 +158,7 @@ function SignIn() {
           </DropdownMenuContent></DropdownMenu>}
       </header>
       <section className={`mx-auto grid w-full ${session ? "max-w-none px-2 py-4" : "max-w-md px-6 py-12"} gap-5`}>
-        {!session && <h2 className="text-2xl font-semibold">Sign in to TriageDesk</h2>}
+        {!session && <div className="grid gap-2"><h2 className="text-2xl font-semibold">{mode === "signup" ? "Create your account" : mode === "verify" ? "Verify your email" : mode === "reset" ? "Reset your password" : "Sign in to TriageDesk"}</h2><p className="text-sm text-muted-foreground">Use any email address. Gmail is not required. Your email is your sign-in name.</p></div>}
         {!client ? <p role="status">Sign-in is not configured.</p> : loading ?
           <p role="status">Checking session...</p> : session ? <>
             {editingPassword ? <form onSubmit={savePassword} className="grid w-full max-w-md gap-4">
@@ -170,14 +181,16 @@ function SignIn() {
                 onChange={(event) => setEmail(event.target.value)} disabled={busy}
                 className="min-h-12 w-full rounded border border-border bg-background px-3" />
             </label>
-            {mode === "password" && <label className="grid gap-2 font-medium">Password
-              <input type="password" required autoComplete="current-password" value={password} disabled={busy}
+            {(mode === "password" || mode === "signup") && <label className="grid gap-2 font-medium">Password
+              <input type="password" required minLength={mode === "signup" ? 12 : undefined} autoComplete={mode === "signup" ? "new-password" : "current-password"} value={password} disabled={busy}
                 onChange={(event) => setPassword(event.target.value)} className="min-h-12 w-full rounded border border-border bg-background px-3" />
             </label>}
-            <button className={button} disabled={busy}><LogIn size={18} />{busy ? "Please wait..." : mode === "password" ? "Sign in" : mode === "reset" ? "Send password reset link" : "Send sign-in link"}</button>
+            {mode === "signup" && <><p className="text-sm text-muted-foreground">Use at least 12 characters. Verify your email, then request race access from an owner.</p><label className="grid gap-2 font-medium">Confirm password<input type="password" required minLength={12} autoComplete="new-password" value={confirmation} disabled={busy} onChange={event => setConfirmation(event.target.value)} className="min-h-12 rounded border border-border bg-background px-3" /></label></>}
+            <button className={button} disabled={busy}><LogIn size={18} />{busy ? "Please wait..." : mode === "signup" ? "Create account" : mode === "verify" ? "Resend verification email" : mode === "password" ? "Sign in" : mode === "reset" ? "Send password reset link" : "Send sign-in link"}</button>
+            {mode !== "signup" && <button type="button" className="desk-secondary" disabled={busy} onClick={() => {setMode("signup");setPassword("");setConfirmation("");setMessage("");setError("");}}>New here? Create an account</button>}
             {googleEnabled && <button type="button" className="desk-secondary" disabled={busy} onClick={googleSignIn}>Continue with Google</button>}
-            {([ ["password", "Use password"], ["link", "Email me a sign-in link"], ["reset", "Forgot password?"] ] as const).filter(([value]) => value !== mode).map(([value, label]) =>
-              <button type="button" key={value} disabled={busy} className="min-h-12 underline" onClick={() => { setMode(value); setPassword(""); setError(""); setMessage(""); }}>{label}</button>)}
+            {([ ["password", "Back to sign in"], ["link", "Email me a sign-in link"], ["reset", "Forgot password?"] ] as const).filter(([value]) => value !== mode && (mode !== "signup" || value === "password") && (mode !== "verify" || value !== "link")).map(([value, label]) =>
+              <button type="button" key={value} disabled={busy} className="min-h-12 underline" onClick={() => { setMode(value); setPassword(""); setConfirmation(""); setError(""); setMessage(""); }}>{label}</button>)}
           </form>}
         {message && <p role="status">{message}</p>}
         {error && <p role="alert" className="text-red-600">{error}</p>}
