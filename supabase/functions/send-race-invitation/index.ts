@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
-import { createInvitationHandler } from "./handler.mjs";
+import { createInvitationHandler, invitationRedirects } from "./handler.mjs";
 
 const url = Deno.env.get("SUPABASE_URL")!;
 const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -22,14 +22,15 @@ Deno.serve(createInvitationHandler({
     if (error) throw new Error("Invitation unavailable or email already attempted.");
     return data.email;
   },
-  async send(email: string) {
+  async send(email: string, invitationId: string) {
+    const redirects = invitationRedirects(appUrl, invitationId);
     const admin = createClient(url, service, { ...options, global: { fetch: timedFetch } });
-    const result = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: appUrl });
+    const result = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: redirects.newAccount });
     if (!result.error) return;
     // Only this definite Auth response is safe to fall back from. Never retry a timeout.
     if (result.error.code !== "email_exists" && result.error.code !== "user_already_exists") throw new Error("Email not confirmed.");
     const auth = createClient(url, anon, { ...options, global: { fetch: timedFetch } });
-    const { error } = await auth.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: appUrl } });
+    const { error } = await auth.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: redirects.existingAccount } });
     if (error) throw new Error("Email not confirmed.");
   },
 }));

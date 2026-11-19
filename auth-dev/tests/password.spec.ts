@@ -18,3 +18,5 @@ test("password login and email fallback remain separate", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Send password reset link" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});

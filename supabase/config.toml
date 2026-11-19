@@ -5,3 +5,6 @@ verify_jwt = false
 [functions.send-race-report]
 # Auth validation and owner-only report claim happen inside the handler.
 verify_jwt = false
+
+[functions.request-race-access]
+verify_jwt = false

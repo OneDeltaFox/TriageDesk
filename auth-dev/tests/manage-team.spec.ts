@@ -67,3 +67,5 @@ for (const role of ['owner','admin']) test(role+' team controls protect elevated
 });
 
 test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/race_access_code",r=>r.fulfill({json:"WINE5K"}));});
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});

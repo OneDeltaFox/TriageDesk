@@ -13,6 +13,7 @@ for (const width of [390,1280]) test(`dashboard menus and layout ${width}`,async
   await expect(page.getByText("Development",{exact:true})).toHaveCount(0);
   await page.screenshot({path:`test-results/dashboard-${width}.png`,fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.getByLabel("Show closed and archived races").check();
   await page.getByRole("button",{name:"Race options for Saturday 10K"}).click();
   await expect(page.getByRole("menuitem",{name:"Archive Race"})).toBeVisible();
   await page.getByRole("menuitem",{name:"Rename Race"}).click();
@@ -30,3 +31,5 @@ test("sign-in preview",async({page})=>{
   await expect(page.getByRole("button",{name:"Sign in",exact:true})).toBeVisible();
   await page.screenshot({path:"test-results/sign-in-polished.png",fullPage:true});
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});
