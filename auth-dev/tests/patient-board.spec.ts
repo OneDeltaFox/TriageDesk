@@ -1,5 +1,38 @@
 import { expect, test } from "@playwright/test";
 
+for (const state of ["open", "full", "closed"] as const) {
+  test(`Incoming arrival button handles a ${state} planned pod`, async ({page}) => {
+    await page.setViewportSize({width:390,height:844});
+    await page.addInitScript(()=>localStorage.setItem("tent-flow-dev-auth",JSON.stringify({access_token:"token",refresh_token:"refresh",token_type:"bearer",expires_at:Math.floor(Date.now()/1000)+3600,user:{id:"user"}})));
+    const snapshot:any={pods:[{id:"pod",name:"Pod 1",kind:"regular",color:"#facc15",capabilities:[],closed:state==="closed",beds:[{id:"bed",label:"1-1",status:state==="full"?"occupied":"open"}]}],visits:[{id:"patient",bib:"123",triage:"untriaged",complaint:"",planned_pod_id:"pod",revision:1,medical_started_at:null,dispositioned_at:null}],placements:[],turnovers:[]};
+    await page.route("**/rest/v1/rpc/my_races",route=>route.fulfill({json:[{id:"race",name:"Test",role:"editor",state:"active"}]}));
+    await page.route("**/rest/v1/rpc/patient_board",route=>route.fulfill({json:snapshot}));
+    let moves=0;
+    await page.route("**/rest/v1/rpc/move_patient",async route=>{
+      moves++;
+      expect(route.request().postDataJSON()).toMatchObject({p_visit:"patient",p_revision:1,p_action:"assigned",p_bed:"bed"});
+      snapshot.visits[0].planned_pod_id=null;
+      snapshot.visits[0].medical_started_at=new Date().toISOString();
+      snapshot.placements=[{visit_id:"patient",bed_id:"bed",ended_at:null,kind:"regular",started_at:new Date().toISOString()}];
+      snapshot.pods[0].beds[0].status="occupied";
+      await route.fulfill({json:2});
+    });
+    await page.goto("/"); await page.getByRole("button",{name:"Open board"}).click();
+    const arrive=page.getByRole("button",{name:"Arrive patient 123 in Pod 1"});
+    if(state==="open") {
+      await arrive.click();
+      await expect(arrive).toHaveCount(0);
+      await expect(page.getByRole("button",{name:"Edit patient 123",exact:true})).toBeVisible();
+      expect(moves).toBe(1);
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+    } else {
+      await expect(arrive).toBeDisabled();
+      await expect(arrive).toHaveText(`Planned pod ${state}`);
+      expect(moves).toBe(0);
+    }
+  });
+}
+
 test("connected intake, assignment, edit, disposition and turnover use RPCs without local writes", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("tent-flow-dev-auth", JSON.stringify({ access_token: "test-token", refresh_token: "refresh", token_type: "bearer", expires_at: Math.floor(Date.now()/1000)+3600, user: { id: "test-user", email: "tester@example.com" } }));
