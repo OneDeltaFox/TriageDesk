@@ -48,12 +48,12 @@ test("verified account can request race access but cannot open a board until app
   await page.addInitScript(()=>localStorage.setItem("tent-flow-dev-auth",JSON.stringify({access_token:"token",refresh_token:"refresh",token_type:"bearer",expires_at:Math.floor(Date.now()/1000)+3600,user:{id:"new-user",email:"runner@example.com",email_confirmed_at:"2026-11-18T00:00:00Z"}})));
   await page.route("**/rest/v1/rpc/my_races",r=>r.fulfill({json:[]}));
   await page.route("**/rest/v1/rpc/my_race_invitations",r=>r.fulfill({json:[]}));
-  await page.route("**/rest/v1/rpc/request_race_access",r=>{
-    expect(r.request().postDataJSON()).toEqual({p_race:"00000000-0000-0000-0000-000000000010"});
+  await page.route("**/rest/v1/rpc/request_race_access_by_code",r=>{
+    expect(r.request().postDataJSON()).toEqual({p_code:"WINE5K"});
     return r.fulfill({status:204});
   });
   await page.goto("/");
-  await page.getByLabel("Race access code",{exact:true}).fill("00000000-0000-0000-0000-000000000010");
+  await page.getByLabel("Race access code",{exact:true}).fill("wine5k");
   await page.getByRole("button",{name:"Request Viewer access"}).click();
   await expect(page.getByText(/Request submitted/)).toBeVisible();
   await expect(page.getByRole("button",{name:"Open board"})).toHaveCount(0);
@@ -75,4 +75,16 @@ test("owner reviews a verified request before granting Viewer access",async({pag
   await page.getByRole("button",{name:"Approve Viewer"}).click();expect(decisions).toBe(0);
   await page.getByRole("button",{name:"Confirm decision"}).click();
   await expect(page.getByText("No pending access requests.")).toBeVisible();expect(decisions).toBe(1);
+});
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/race_access_code",r=>r.fulfill({json:"WINE5K"}));});
+
+test('owner saves a custom code and sees the saved value',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('tent-flow-dev-auth',JSON.stringify({access_token:'token',refresh_token:'refresh',token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'owner'}})));
+ for(const endpoint of ['race_team','race_invitations','my_race_invitations','race_access_requests']) await page.route('**/rest/v1/rpc/'+endpoint,r=>r.fulfill({json:[]}));
+ await page.route('**/rest/v1/rpc/my_races',r=>r.fulfill({json:[{id:'race',name:'Test',role:'owner',state:'active'}]}));
+ await page.route('**/rest/v1/rpc/patient_board',r=>r.fulfill({json:{pods:[],visits:[],placements:[],turnovers:[]}}));
+ await page.route('**/rest/v1/rpc/set_race_access_code',r=>{expect(r.request().postDataJSON()).toEqual({p_race:'race',p_expected:'WINE5K',p_code:'RACE2026'});return r.fulfill({json:'RACE2026'});});
+ await page.goto('/');await page.getByRole('button',{name:'Open board'}).click();await page.getByRole('button',{name:'Menu',exact:true}).click();await page.getByRole('button',{name:'Manage Team',exact:true}).click();
+ await expect(page.getByLabel('Race access code',{exact:true})).toHaveValue('WINE5K');await page.getByLabel('Race access code',{exact:true}).fill('race2026');await page.getByRole('button',{name:'Save access code'}).click();await expect(page.getByText('Access code saved. Share it with your team.')).toBeVisible();await expect(page.getByLabel('Race access code',{exact:true})).toHaveValue('RACE2026');
 });

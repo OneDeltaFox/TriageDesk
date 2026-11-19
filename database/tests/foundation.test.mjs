@@ -753,6 +753,29 @@ test('database foundation', async (t) => {
     await assert.rejects(asUser(a,'select public.race_team($1)',[r]),/Access denied/);
     await assert.rejects(asUser(a,'select public.patient_board($1)',[r]),/Access denied/);
   });
+  await t.test('custom codes are unique, owner-managed, and only request access',async()=>{
+    const r=id(9960), other=id(9961), u=id(9962);
+    await query("insert into auth.users(id,email,email_confirmed_at) values($1,'code@example.test',now())",[u]);
+    await query("insert into race_private.races(id,owner_id,name) values($1,$3,'Code test'),($2,$3,'Other code test')",[r,other,owner]);
+    const set=(who,raceId,expected,code)=>asUser(who,'select public.set_race_access_code($1,$2,$3)',[raceId,expected,code]);
+    await set(owner,r,null,' wine5k ');
+    assert.equal((await asUser(owner,'select public.race_access_code($1) code',[r])).rows[0].code,'WINE5K');
+    await assert.rejects(set(owner,other,null,'Wine5K'),/already in use/);
+    await assert.rejects(set(owner,r,null,'OTHER'),/Code changed/);
+    await assert.rejects(set(owner,r,'WINE5K','x'),/4–24/);
+    await assert.rejects(set(u,r,'WINE5K','HACK'),/Access denied/);
+    await assert.rejects(asUser(u,'select public.race_access_code($1)',[r]),/Access denied/);
+    const request=code=>asUser(u,'select public.request_race_access_by_code($1)',[code]);
+    await request(' wine5k '); await request('WINE5K');
+    assert.equal((await query('select * from race_private.access_requests where race_id=$1',[r])).rows.length,1);
+    await assert.rejects(asUser(u,'select public.patient_board($1)',[r]),/Access denied/);
+    await set(owner,r,'WINE5K','NEW5K');
+    await assert.rejects(request('WINE5K'),/Race unavailable/);
+    await query("update race_private.races set state='closed' where id=$1",[r]);
+    await assert.rejects(request('NEW5K'),/Race unavailable/);
+    await query('update auth.users set email_confirmed_at=null where id=$1',[u]);
+    await assert.rejects(request('NEW5K'),/Verify your email/);
+  });
   await t.test('real concurrent clients cannot both claim one bed',{skip:!url},async()=>{
     const a=id(50), b=id(51), target=id(35);
     await query('insert into race_private.beds(id,race_id,pod_id,label) values($1,$2,$3,$4)',[target,race,regular,'1-3']);

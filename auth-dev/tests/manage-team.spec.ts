@@ -64,3 +64,5 @@ for (const role of ['owner','admin']) test(role+' team controls protect elevated
  await expect(dialog.getByLabel('Role for admin@example.com')).toHaveCount(role==='owner'?1:0);
  await expect(dialog.getByLabel('Role for member@example.com').locator('option[value="admin"]')).toHaveCount(role==='owner'?1:0);
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/race_access_code",r=>r.fulfill({json:"WINE5K"}));});
