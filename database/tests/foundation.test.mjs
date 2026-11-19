@@ -60,6 +60,41 @@ test('database foundation', async (t) => {
   const transition=(user,v,revision,action,destination=null,category=null,other=null)=>asUser(user,
     'select race_private.transition_visit($1,$2,$3,$4,$5,$6)',[v,revision,action,destination,category,other]);
 
+  await t.test('Incoming plans do not start care and active race numbers cannot be duplicated', async()=>{
+    const r=id(9800), p=id(9801), b=id(9802), v=id(9803), other=id(9804);
+    await query('insert into race_private.races(id,owner_id,name) values ($1,$2,$3)',[r,owner,'Intake test']);
+    await query("insert into race_private.pods(id,race_id,name,kind,color) values ($1,$2,'Pod 1','regular','#ffcc00')",[p,r]);
+    await query("insert into race_private.beds(id,race_id,pod_id,label) values ($1,$2,$3,'1-1')",[b,r,p]);
+    const save=(visitId,revision,details,bedId=null,u=owner)=>asUser(u,'select public.save_patient($1,$2,$3,$4,$5) x',[r,visitId,revision,JSON.stringify({bib:'PLAN-1',triage:'untriaged',...details}),bedId]);
+    await save(v,null,{planned_pod_id:p});
+    const read=async()=>(await query('select v.*,d.planned_pod_id from race_private.visits v join race_private.visit_details d on d.visit_id=v.id where v.id=$1',[v])).rows[0];
+    let row=await read();
+    assert.equal(row.planned_pod_id,p);
+    assert.equal(row.medical_started_at,null);
+    assert.ok(row.notified_at);
+    assert.equal((await query('select * from race_private.placements where visit_id=$1',[v])).rows.length,0);
+    await assert.rejects(save(other,null,{bib:' plan-1 '}),/active patient already/);
+    await assert.rejects(save(other,null,{bib:'PLAN-2',planned_pod_id:regular}),/unavailable/);
+    await assert.rejects(save(other,null,{bib:'PLAN-2',planned_pod_id:p},b),/only available/);
+    await assert.rejects(save(other,null,{bib:'PLAN-2',planned_pod_id:p},null,viewer),/Access denied/);
+    await save(v,row.revision,{planned_pod_id:null});
+    row=await read();
+    assert.equal(row.planned_pod_id,null);
+    assert.equal(row.medical_started_at,null);
+    await save(v,row.revision,{planned_pod_id:p});
+    row=await read();
+    await save(v,row.revision,{},b);
+    row=await read();
+    assert.equal(row.planned_pod_id,null);
+    assert.ok(row.medical_started_at);
+    await assert.rejects(save(other,null,{bib:'PLAN-1'}),/active patient already/);
+    await asUser(owner,'select public.move_patient($1,$2,$3,$4,$5,$6)',[v,row.revision,'dispositioned',null,'discharged',null]);
+    await save(other,null,{bib:'PLAN-1'});
+    assert.equal((await query('select * from race_private.visits where id=$1',[other])).rows.length,1);
+    for (const table of ['events','turnovers','placements','visit_details','visits','beds','pods']) await query(`delete from race_private.${table} where race_id=$1`,[r]);
+    await query('delete from race_private.races where id=$1',[r]);
+  });
+
   await t.test('complaints are owner-managed, race-scoped, copied and do not rewrite patients', async()=>{
     const read=async(u=owner,r=race)=>(await asUser(u,'select public.race_complaints($1) x',[r])).rows[0].x;
     const initial=await read();

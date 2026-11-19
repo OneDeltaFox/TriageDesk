@@ -41,9 +41,20 @@ test("connected intake, assignment, edit, disposition and turnover use RPCs with
   await page.getByRole("button",{name:"New Patient",exact:true}).click();
   let modal=page.getByRole("dialog");
   await modal.getByLabel("Race #",{exact:true}).fill("TEST-1");
+  await modal.getByLabel("Preassign Pod (Incoming)").selectOption("pod");
   await modal.getByRole("button",{name:"Add",exact:true}).click();
   await expect(modal).toHaveCount(0);
-  expect(saves[0]).toMatchObject({p_revision:null,p_bed:null,p_details:{triage:"untriaged",complaint:""}});
+  expect(saves[0]).toMatchObject({p_revision:null,p_bed:null,p_details:{triage:"untriaged",complaint:"",planned_pod_id:"pod"}});
+  expect(snapshot.visits[0].medical_started_at).toBeNull();
+  expect(snapshot.placements).toHaveLength(0);
+  await page.getByRole("button",{name:"New Patient",exact:true}).click();
+  await modal.getByLabel("Race #",{exact:true}).fill("test-1");
+  await modal.getByRole("button",{name:"Add",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Patient already on board"})).toBeVisible();
+  expect(saves).toHaveLength(1);
+  await page.getByRole("button",{name:"Open existing patient",exact:true}).click();
+  await expect(modal.getByLabel("Preassign Pod (Incoming)")).toHaveValue("pod");
+  await modal.getByRole("button",{name:"Cancel",exact:true}).click();
   await page.getByRole("button",{name:/Incoming \(1\)/}).click();
   await page.getByRole("button",{name:"Edit patient TEST-1",exact:true}).click();
   await modal.getByLabel("Move to pod").selectOption("pod");
@@ -69,6 +80,25 @@ test("connected intake, assignment, edit, disposition and turnover use RPCs with
   await page.keyboard.press("Escape");
   await page.screenshot({path:"test-results/connected-patient-board.png",fullPage:true});
   expect(await page.evaluate(()=>localStorage.getItem("tent-board-pods-v3"))).toBe("demo-sentinel");
+});
+
+test("a duplicate created on another device opens the refreshed existing patient", async ({page}) => {
+  await page.addInitScript(()=>localStorage.setItem("tent-flow-dev-auth",JSON.stringify({access_token:"token",refresh_token:"refresh",token_type:"bearer",expires_at:Math.floor(Date.now()/1000)+3600,user:{id:"user"}})));
+  const snapshot:any={pods:[],visits:[],placements:[],turnovers:[]};
+  await page.route("**/rest/v1/rpc/my_races",route=>route.fulfill({json:[{id:"race",name:"Test",role:"editor",state:"active"}]}));
+  await page.route("**/rest/v1/rpc/patient_board",route=>route.fulfill({json:snapshot}));
+  await page.route("**/rest/v1/rpc/save_patient",async route=>{
+    snapshot.visits=[{id:"existing",bib:"123",triage:"untriaged",complaint:"",revision:1,medical_started_at:null,dispositioned_at:null}];
+    await route.fulfill({status:400,json:{code:"P0002",message:"An active patient already has this race number",details:"existing"}});
+  });
+  await page.goto("/"); await page.getByRole("button",{name:"Open board"}).click();
+  await page.getByRole("button",{name:"New Patient",exact:true}).click();
+  await page.getByLabel("Race #",{exact:true}).fill("123");
+  await page.getByRole("button",{name:"Add",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Patient already on board"})).toBeVisible();
+  await page.getByRole("button",{name:"Open existing patient"}).click();
+  await expect(page.getByRole("dialog").getByLabel("Race #",{exact:true})).toHaveValue("123");
+  await expect(page.getByRole("button",{name:"Save",exact:true})).toBeEnabled();
 });
 
 test("unavailable patient endpoint fails closed without loading demo patients", async ({page}) => {

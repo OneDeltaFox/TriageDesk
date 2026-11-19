@@ -14,7 +14,7 @@ import { RaceEditor } from "./race-editor";
 import { ManageComplaints } from "./manage-complaints";
 import { defaultComplaintOptions, type ComplaintOption } from "@/lib/complaints";
 
-type Visit = { id: string; revision: number; bib: string; triage: Triage; complaint: string; notes: string; source: string; eta: string;
+type Visit = { id: string; revision: number; bib: string; triage: Triage; complaint: string; notes: string; source: string; eta: string; planned_pod_id?: string;
   medical_started_at: string | null; dispositioned_at: string | null; disposition: DispositionCategory; other_disposition: string | null };
 type Placement = { visit_id: string; bed_id: string; started_at: string; ended_at: string | null; kind: string };
 type Snapshot = { pods: Pod[]; visits: Visit[]; placements: Placement[]; reservations?: { visit_id: string; bed_id: string }[]; turnovers: { id: string; bed_id: string }[] };
@@ -26,6 +26,7 @@ export function PatientBoard({ client, race, onBack }: {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [needsRefresh, setNeedsRefresh] = useState(false);
+  const [duplicateVisitId,setDuplicateVisitId]=useState<string>();
   const [editingPod, setEditingPod] = useState<Pod | null>(null);
   const [teamOpen, setTeamOpen] = useState(false);
   const [podsOpen,setPodsOpen]=useState(false);
@@ -94,7 +95,8 @@ export function PatientBoard({ client, race, onBack }: {
         if (!visit && !createId.current) createId.current = createPatientId();
         result = await client.rpc("save_patient", { p_race: race.id, p_visit: visit?.id ?? createId.current, p_revision: visit?.revision ?? null,
           p_details: { bib: command.details.bib, triage: command.details.triage, complaint: command.details.complaint ?? "", notes: command.details.operationalStatus ?? "",
-            ...(command.details.source !== undefined ? { source: command.details.source } : {}), ...(command.details.eta !== undefined ? { eta: command.details.eta } : {}) }, p_bed: command.bed ?? null }).abortSignal(controller.signal);
+            ...(command.details.source !== undefined ? { source: command.details.source } : {}), ...(command.details.eta !== undefined ? { eta: command.details.eta } : {}),
+            ...(command.details.plannedPodId !== undefined ? {planned_pod_id:command.details.plannedPodId || null} : {}) }, p_bed: command.bed ?? null }).abortSignal(controller.signal);
       } else if (command.action === "ready") {
         const turnover = snapshot.turnovers.find(t => t.bed_id === command.bed);
         if (!turnover) throw new Error("Stale turnover");
@@ -108,14 +110,25 @@ export function PatientBoard({ client, race, onBack }: {
       if (command.action === "save" && !visit) createId.current = null;
       await load();
       return true;
-    } catch {
+    } catch (failure) {
+      if (failure && typeof failure === "object" && "code" in failure && failure.code === "P0002" && "details" in failure && typeof failure.details === "string") {
+        createId.current=null;
+        await load();
+        setDuplicateVisitId(failure.details);
+        return false;
+      }
       setNeedsRefresh(true);
       setError("Save was not confirmed. Refresh and check the patient before retrying. Another user may have changed the record or bed.");
       return false;
     } finally { clearTimeout(timer); lock.current = false; if (alive.current) setBusy(false); }
   }
   const livePlacements = snapshot?.placements.filter(p => !p.ended_at) ?? [];
-  const details = (visit: Visit) => ({ bib: visit.bib, triage: visit.triage, complaint: visit.complaint, operationalStatus: visit.notes });
+  const details = (visit: Visit) => {
+    const plannedPod = snapshot?.pods.find(p => p.id === visit.planned_pod_id);
+    return { bib: visit.bib, triage: visit.triage, complaint: visit.complaint, operationalStatus: visit.notes,
+      plannedPodId: visit.planned_pod_id ?? undefined,
+      plannedPodName: plannedPod ? `${plannedPod.name}${plannedPod.closed ? " (closed — reassign)" : ""}` : undefined };
+  };
   const pods = snapshot ? [...snapshot.pods].sort((a,b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map(pod => ({ ...pod, zone: "", staff: [], beds: [...pod.beds].sort((a,b) => a.label.localeCompare(b.label, undefined, { numeric: true })).map(original => {
     const bed = { ...original, label: original.label.replace(/^pod\s+(\d+)-(\d+)$/i, "$1-$2") };
     const placement = livePlacements.find(p => p.bed_id === bed.id);
@@ -151,7 +164,7 @@ export function PatientBoard({ client, race, onBack }: {
       <div inert={busy || needsRefresh || syncFailed || race.state !== "active"}>
         <TentBoard connected={{ pods, incoming: snapshot.visits.filter(v => !v.dispositioned_at && !livePlacements.some(p => p.visit_id === v.id)).map(v => ({ id: v.id, ...details(v), source: v.source, eta: v.eta })),
           dispositions: snapshot.visits.filter(v => v.dispositioned_at).map(v => ({ id: v.id, ...details(v), category: v.disposition, time: new Date(v.dispositioned_at!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }), from: "Medical", description: v.other_disposition ?? undefined })),
-          eventName: race.name, run, settings, complaints: complaints.filter(x=>x.enabled).map(x=>x.label), readOnly: race.state !== "active",
+          eventName: race.name, run, settings, duplicateVisitId, dismissDuplicate:()=>setDuplicateVisitId(undefined), complaints: complaints.filter(x=>x.enabled).map(x=>x.label), readOnly: race.state !== "active",
           ...(race.role === "owner" && race.state === "active" ? { onEditPod: (id: string) => setEditingPod(snapshot.pods.find(pod => pod.id === id) ?? null) } : {}) }} />
       </div>}
     {editingPod && <EditPod key={editingPod.id} client={client} pod={editingPod} onClose={() => setEditingPod(null)} onSaved={() => { void refresh(); }} />}
