@@ -420,11 +420,16 @@ function IncomingCard({
   patient,
   disabled,
   onEdit,
+  plannedPod,
+  onArrive,
 }: {
   patient: Incoming;
   disabled: boolean;
   onEdit: () => void;
+  plannedPod?: Pod | undefined;
+  onArrive?: (() => void) | undefined;
 }) {
+  const unavailable = !plannedPod ? "Planned pod unavailable" : plannedPod.closed ? "Planned pod closed" : !plannedPod.beds.some(bed => bed.status === "open") ? "Planned pod full" : "";
   return (
     <div className="min-w-0">
       <PatientCard
@@ -433,6 +438,17 @@ function IncomingCard({
         source={disabled ? undefined : { kind: "incoming", incomingId: patient.id }}
         onEdit={disabled ? undefined : onEdit}
       />
+      {patient.plannedPodId && onArrive && (
+        <button
+          type="button"
+          disabled={disabled || !!unavailable}
+          onClick={onArrive}
+          aria-label={`Arrive patient ${patient.bib} in ${plannedPod?.name ?? "planned pod"}`}
+          className="mt-1 min-h-11 w-full rounded-sm bg-signal px-3 text-sm font-semibold text-background disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {unavailable || `Arrive in ${plannedPod?.name}`}
+        </button>
+      )}
       {patient.source && (
         <p className="mt-1 truncate text-xs text-muted-foreground">{patient.source}</p>
       )}
@@ -1902,6 +1918,12 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                     patient={patient}
                     disabled={setup}
                     onEdit={() => startIncomingEdit(patient)}
+                    plannedPod={pods.find(pod => pod.id === patient.plannedPodId)}
+                    onArrive={connected && !connected.readOnly ? () => {
+                      const pod = pods.find(pod => pod.id === patient.plannedPodId && !pod.closed);
+                      const bed = pod?.beds.find(bed => bed.status === "open");
+                      if (pod && bed) handleBedDrop(pod.id, bed.id, { kind: "incoming", incomingId: patient.id });
+                    } : undefined}
                   />
                 ))}
               </div>
