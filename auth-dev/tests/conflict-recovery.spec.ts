@@ -8,6 +8,7 @@ test("two browsers preserve the first save and reject a stale edit", async ({ br
     const pages = [];
     for (const context of contexts) {
       await context.addInitScript(() => localStorage.setItem("tent-flow-dev-auth", JSON.stringify({ access_token: "token", refresh_token: "refresh", token_type: "bearer", expires_at: Math.floor(Date.now()/1000)+3600, user: { id: "user" } })));
+      await context.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));
       await context.route("**/rest/v1/rpc/my_races", route => route.fulfill({ json: [{ id: "race", name: "Conflict Test", role: "owner", state: "active" }] }));
       await context.route("**/rest/v1/rpc/patient_board", route => route.fulfill({ json: { pods: [], visits: [visit], placements: [], turnovers: [] } }));
       await context.route("**/rest/v1/rpc/save_patient", async route => {
@@ -50,6 +51,7 @@ test("offline board blocks interaction and recovers without replaying writes", a
   let writes = 0;
   await page.route("**/rest/v1/rpc/**", route => {
     const endpoint = route.request().url().split("/").pop();
+    if (endpoint === "available_races") return route.fulfill({ json: [] });
     if (endpoint === "my_race_invitations") return route.fulfill({ json: [] });
     if (endpoint === "race_complaints") return route.fulfill({ json: [] });
     if (endpoint === "my_races") return route.fulfill({ json: [{ id: "race", name: "Offline Test", role: "owner", state: "active" }] });
@@ -71,3 +73,5 @@ test("offline board blocks interaction and recovers without replaying writes", a
   await expect(page.getByRole("dialog")).toBeVisible();
   expect(writes).toBe(0);
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});

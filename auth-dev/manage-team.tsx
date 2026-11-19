@@ -81,8 +81,8 @@ export function ManageTeam({ client, raceId, isOwner = false, onClose }: { clien
           <button className={button} disabled={busy || !ready}><UserPlus size={18} />Add member</button>
         </form>
       </div>}
-      {!pending && ready && <Invitations client={client} raceId={raceId} />}
-      {!pending && ready && <AccessRequests client={client} raceId={raceId} isOwner={isOwner} onApproved={()=>void load()} />}
+      {!pending && ready && <Invitations client={client} raceId={raceId} isOwner={isOwner} />}
+      {!pending && ready && <AccessRequests client={client} raceId={raceId} onApproved={()=>void load()} />}
       {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
       <div className="flex gap-2"><button className={button} disabled={busy} aria-label="Refresh team" title="Refresh team" onClick={() => void load()}><RefreshCw size={18} /></button><button className={button} disabled={busy} onClick={onClose}>Close</button></div>
     </DialogContent>

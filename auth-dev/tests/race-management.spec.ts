@@ -8,6 +8,7 @@ test("closed races can be archived, reused and restored with confirmation", asyn
   await page.route("**/rest/v1/rpc/my_race_invitations", r => r.fulfill({ json: [] }));
   await page.route("**/rest/v1/rpc/set_race_archived", r => { writes++; archived = r.request().postDataJSON().p_archived; return r.fulfill({ status: 204 }); });
   await page.goto("/");
+  await page.getByLabel("Show closed and archived races").check();
   page.once("dialog", d => d.dismiss());
   await page.getByRole("button", { name: "Race options for Friday" }).click();
   await page.getByRole("menuitem", { name: "Archive Race", exact: true }).click();
@@ -15,8 +16,9 @@ test("closed races can be archived, reused and restored with confirmation", asyn
   page.once("dialog", d => d.accept());
   await page.getByRole("button", { name: "Race options for Friday" }).click();
   await page.getByRole("menuitem", { name: "Archive Race", exact: true }).click();
+  await page.getByLabel("Show closed and archived races").uncheck();
   await expect(page.getByText("All your races are archived.")).toBeVisible();
-  await page.getByLabel("Show archived races").check();
+  await page.getByLabel("Show closed and archived races").check();
   await page.getByRole("button", { name: "Race options for Friday" }).click();
   await expect(page.getByRole("menuitem", { name: "Restore Race" })).toBeVisible();
   await page.keyboard.press("Escape");
@@ -95,3 +97,5 @@ test("team copy defaults off, reviews roles, and refreshes after stale team reje
   await page.getByRole("button", { name: "Confirm new race" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});

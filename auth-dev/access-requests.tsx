@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { AccessCode } from "./access-code";
+
 
 type Request = { user_id: string; email: string; requested_at: string };
-export function AccessRequests({client,raceId,onApproved,isOwner=false}: {client:SupabaseClient;raceId?:string;isOwner?:boolean;onApproved?:()=>void}) {
-  const [code,setCode]=useState("");
+export function AccessRequests({client,raceId,onApproved}: {client:SupabaseClient;raceId:string;onApproved?:()=>void}) {
+
   const [items,setItems]=useState<Request[]>([]);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
-  const [pending,setPending]=useState<{item:Request;approve:boolean}|null>(null);
+  const [pending,setPending]=useState<{item:Request;approve:boolean;role:"viewer"|"editor"}|null>(null);
   const lock=useRef(false);
   const button="min-h-11 rounded border border-border px-3 disabled:opacity-50";
   async function rpc(name:string,args:Record<string,unknown>) {
@@ -32,32 +32,25 @@ export function AccessRequests({client,raceId,onApproved,isOwner=false}: {client
     lock.current=true;setBusy(true);setError("");setMessage("");
     try {
       if(raceId && pending) {
-        await rpc("review_race_access",{p_race:raceId,p_user:pending.item.user_id,p_requested_at:pending.item.requested_at,p_approve:pending.approve});
-        setPending(null);setMessage(pending.approve ? "Viewer access approved." : "Request declined.");
+        await rpc("review_race_access_as",{p_race:raceId,p_user:pending.item.user_id,p_requested_at:pending.item.requested_at,p_approve:pending.approve,p_role:pending.role});
+        setPending(null);setMessage(pending.approve ? `${pending.role === "editor" ? "Editor" : "Viewer"} access approved.` : "Request declined.");
         lock.current=false;await load();onApproved?.();
-      } else if(!raceId) {
-        await rpc("request_race_access_by_code",{p_code:code.trim().toUpperCase()});
-        setMessage("Request submitted. An Owner or Admin must approve access. Use Refresh races after approval.");
       }
-    } catch {setError(raceId ? "Decision not confirmed. Refresh requests and check the team before retrying." : "Unable to request access. Verify your email and check the race code with the owner.");setPending(null);if(raceId)setItems([]);}
+    } catch {setError("Decision not confirmed. Refresh requests and check the team before retrying.");setPending(null);if(raceId)setItems([]);}
     finally {lock.current=false;setBusy(false);}
   }
   return <section className="grid gap-3 rounded-lg border border-border p-4" aria-label="Race access requests">
     <h3 className="font-semibold">{raceId ? "Access requests" : "Join a race"}</h3>
     {raceId ? <>
-      <AccessCode client={client} raceId={raceId} isOwner={isOwner} />
-      <p className="text-sm text-muted-foreground">Share this code with your team. Verified accounts can request access; you approve each person as Viewer.</p>
-      {pending ? <div className="grid gap-2"><p className="break-all">{pending.approve ? "Approve Viewer access for" : "Decline the request from"} {pending.item.email}?</p>
-        <p className="text-sm">Viewers can see this race’s status board but cannot edit patients or settings.</p>
+      <p className="text-sm text-muted-foreground">Review requests from verified accounts and choose their race access.</p>
+      {pending ? <div className="grid gap-2"><p className="break-all">{pending.approve ? `Approve ${pending.role} access for` : "Decline the request from"} {pending.item.email}?</p>
+        {pending.approve && <label className="grid gap-1">Access role<select className="min-h-11 rounded border bg-background px-3" value={pending.role} onChange={e=>setPending({...pending,role:e.target.value as "viewer"|"editor"})}><option value="viewer">Viewer</option><option value="editor">Editor</option></select></label>}
+        <p className="text-sm">Editors can manage patients. Viewers can see this race’s status board but cannot edit patients or settings.</p>
         <div className="flex gap-2"><button className={button} disabled={busy} onClick={()=>void submit()}>Confirm decision</button><button className={button} disabled={busy} onClick={()=>setPending(null)}>Back</button></div></div>
-        : items.map(item=><div key={item.user_id} className="flex flex-wrap items-center gap-2"><span className="min-w-0 flex-1 break-all">{item.email}</span><button className={button} disabled={busy} onClick={()=>setPending({item,approve:true})}>Approve Viewer</button><button className={button} disabled={busy} onClick={()=>setPending({item,approve:false})}>Decline</button></div>)}
+        : items.map(item=><div key={item.user_id} className="flex flex-wrap items-center gap-2"><span className="min-w-0 flex-1 break-all">{item.email}</span><button className={button} disabled={busy} onClick={()=>setPending({item,approve:true,role:"viewer"})}>Review request</button><button className={button} disabled={busy} onClick={()=>setPending({item,approve:false,role:"viewer"})}>Decline</button></div>)}
       {!busy && !error && items.length===0 && <p className="text-sm">No pending access requests.</p>}
       <button className={button} disabled={busy} onClick={()=>void load()}>Refresh requests</button>
-    </> : <form className="grid gap-3" onSubmit={event=>{event.preventDefault();void submit();}}>
-      <p className="text-sm text-muted-foreground">Ask the race owner for an access code. Creating an account does not automatically grant race access.</p>
-      <label className="grid gap-1">Race access code<input required minLength={4} maxLength={24} pattern="[A-Za-z0-9][A-Za-z0-9-]{3,23}" autoCapitalize="characters" autoCorrect="off" spellCheck={false} placeholder="e.g. WINE5K" value={code} disabled={busy} onChange={event=>setCode(event.target.value)} className="min-h-11 w-full rounded border bg-background px-3" /></label>
-      <button className={button} disabled={busy}>Request Viewer access</button>
-    </form>}
+    </> : null}
     {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
   </section>;
 }

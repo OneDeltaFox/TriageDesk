@@ -1,0 +1,11 @@
+# Race onboarding deployment
+
+Apply migrations 029 then 030 before publishing the UI. 029 enables Owner-issued Admin invitations. 030 exposes only active race names and the verified caller's own access/request/invitation state, adds Viewer/Editor request review, and retires access-code RPCs. Neither grants memberships during installation.
+
+Deploy `send-race-invitation` and `request-race-access` with JWT gateway verification disabled as in `supabase/config.toml`; both authenticate bearer tokens using Supabase Auth internally. The notification function uses the existing `INVITATION_APP_URL` and `RESEND_API_KEY` secrets. Never put service-role or Resend credentials in the browser.
+
+Supabase Auth redirect allowlist must include the canonical app URL plus the scoped query redirects `https://triagedeskapp.com/?setup=invite&invitation=*` and `https://triagedeskapp.com/?review=*`. Preserve existing approved redirects. The new-account email uses Supabase's invite verification link then redirects to password setup. Existing-account fallback uses ordinary sign-in without forcing password changes. The invitation email template should label its verification link “Set up your account” and explain that the invited email is the username. Retain the Supabase confirmation URL template variable.
+
+Notification recipients are obtained on the server from the race Owner/Admin memberships. Each pending request is claimed once before sending, with per-recipient Resend idempotency keys and a per-requester hourly limit. No patient details are fetched or mailed. A failed or ambiguous email send does not discard the request and is not automatically retried; the UI explains that approval can still happen in Manage Team. Rate-limit history contains only account IDs/timestamps, with old records pruned during subsequent claims.
+
+Verify with disposable accounts: new invited user sets password and accepts the intended role; existing user signs in and accepts without setup; verified nonmember sees active race names but cannot open boards; request generates one notification for each Owner/Admin; repeated pending request sends no additional emails; Owner/Admin reviews as Viewer or Editor. Only Owner can invite/promote Admins. Closed/archived races remain absent from the default directory. Installation itself must send no emails or alter existing patient records.

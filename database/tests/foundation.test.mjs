@@ -21,7 +21,7 @@ test('database foundation', async (t) => {
   t.after(async () => { if (url) await db.end(); else await db.close(); });
   // Fail instead of changing any pre-existing schema. This harness never drops a database.
   assert.equal((await query("select 1 from pg_namespace where nspname in ('race_private','auth')")).rows.length,0);
-  await exec(`create role authenticated nologin; create role anon nologin;
+  await exec(`create role authenticated nologin; create role anon nologin; create role service_role nologin;
     create schema auth;
     create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz);
     create function auth.uid() returns uuid language sql stable as
@@ -753,28 +753,56 @@ test('database foundation', async (t) => {
     await assert.rejects(asUser(a,'select public.race_team($1)',[r]),/Access denied/);
     await assert.rejects(asUser(a,'select public.patient_board($1)',[r]),/Access denied/);
   });
-  await t.test('custom codes are unique, owner-managed, and only request access',async()=>{
-    const r=id(9960), other=id(9961), u=id(9962);
-    await query("insert into auth.users(id,email,email_confirmed_at) values($1,'code@example.test',now())",[u]);
-    await query("insert into race_private.races(id,owner_id,name) values($1,$3,'Code test'),($2,$3,'Other code test')",[r,other,owner]);
-    const set=(who,raceId,expected,code)=>asUser(who,'select public.set_race_access_code($1,$2,$3)',[raceId,expected,code]);
-    await set(owner,r,null,' wine5k ');
-    assert.equal((await asUser(owner,'select public.race_access_code($1) code',[r])).rows[0].code,'WINE5K');
-    await assert.rejects(set(owner,other,null,'Wine5K'),/already in use/);
-    await assert.rejects(set(owner,r,null,'OTHER'),/Code changed/);
-    await assert.rejects(set(owner,r,'WINE5K','x'),/4–24/);
-    await assert.rejects(set(u,r,'WINE5K','HACK'),/Access denied/);
-    await assert.rejects(asUser(u,'select public.race_access_code($1)',[r]),/Access denied/);
-    const request=code=>asUser(u,'select public.request_race_access_by_code($1)',[code]);
-    await request(' wine5k '); await request('WINE5K');
-    assert.equal((await query('select * from race_private.access_requests where race_id=$1',[r])).rows.length,1);
+  await t.test('access code endpoints are retired',async()=>{
+    await assert.rejects(asUser(owner,'select public.race_access_code($1)',[race]),/permission denied/);
+    await assert.rejects(asUser(owner,"select public.set_race_access_code($1,null,'TEST')",[race]),/permission denied/);
+    await assert.rejects(asUser(viewer,"select public.request_race_access_by_code('TEST')"),/permission denied/);
+  });
+  await t.test('only Owners invite Admins; verified acceptance grants Admin with owner controls protected',async()=>{
+    const r=id(9970),a=id(9971),recipient=id(9972),inviteOwner=id(9973);
+    await query("insert into auth.users(id,email,email_confirmed_at) values($1,'invite-owner@example.test',now())",[inviteOwner]);
+    await query("insert into auth.users(id,email,email_confirmed_at) values($1,'inv-admin@example.test',now()),($2,'new-admin@example.test',null)",[a,recipient]);
+    await query("insert into race_private.races(id,owner_id,name) values($1,$2,'Admin invites')",[r,inviteOwner]);
+    await query("insert into race_private.memberships values($1,$2,'admin')",[r,a]);
+    const invite=(who,email,role)=>asUser(who,'select public.create_race_invitation($1,$2,$3) id',[r,email,role]);
+    await assert.rejects(invite(a,'new-admin@example.test','admin'),/Only the Owner/);
+    const inv=(await invite(inviteOwner,'new-admin@example.test','admin')).rows[0].id;
+    await assert.rejects(asUser(a,'select public.cancel_race_invitation($1,$2)',[r,inv]),/Only the Owner/);
+    await assert.rejects(asUser(a,'select public.claim_invitation_email($1,$2)',[r,inv]),/Only the Owner/);
+    await assert.rejects(asUser(recipient,'select public.accept_race_invitation($1)',[inv]),/Verified email/);
+    await query('update auth.users set email_confirmed_at=now() where id=$1',[recipient]);
+    await assert.rejects(asUser(a,'select public.accept_race_invitation($1)',[inv]),/Invitation unavailable/);
+    await asUser(inviteOwner,'select public.claim_invitation_email($1,$2)',[r,inv]);
+    await asUser(recipient,'select public.accept_race_invitation($1)',[inv]);
+    assert.equal((await query('select role from race_private.memberships where race_id=$1 and user_id=$2',[r,recipient])).rows[0].role,'admin');
+    await asUser(recipient,'select public.patient_board($1)',[r]);
+    await assert.rejects(asUser(recipient,'select public.end_race_preview($1)',[r]),/Access denied/);
+    await assert.rejects(invite(recipient,'another@example.test','admin'),/Only the Owner/);
+    const editorInvite=(await invite(a,'editor-invite@example.test','editor')).rows[0].id;
+    await asUser(a,'select public.cancel_race_invitation($1,$2)',[r,editorInvite]);
+  });
+  await t.test('verified race directory, role approval and private deduplicated notifications',async()=>{
+    const r=id(9980),o=id(9981),a=id(9982),u=id(9983),closedRace=id(9984);
+    for(const [user,email] of [[o,'notify-owner@example.test'],[a,'notify-admin@example.test'],[u,'requester@example.test']])await query('insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())',[user,email]);
+    await query("insert into race_private.races(id,owner_id,name,state) values($1,$3,'Visible race','active'),($2,$3,'Hidden race','closed')",[r,closedRace,o]);
+    await query("insert into race_private.memberships values($1,$2,'admin')",[r,a]);
+    const directory=() => asUser(u,'select public.available_races() data');
+    let rows=(await directory()).rows[0].data;
+    assert.ok(rows.some(x=>x.id===r));assert.ok(!rows.some(x=>x.id===closedRace));
+    assert.deepEqual(Object.keys(rows.find(x=>x.id===r)).sort(),['id','invitation','name','requested','role','state']);
     await assert.rejects(asUser(u,'select public.patient_board($1)',[r]),/Access denied/);
-    await set(owner,r,'WINE5K','NEW5K');
-    await assert.rejects(request('WINE5K'),/Race unavailable/);
-    await query("update race_private.races set state='closed' where id=$1",[r]);
-    await assert.rejects(request('NEW5K'),/Race unavailable/);
-    await query('update auth.users set email_confirmed_at=null where id=$1',[u]);
-    await assert.rejects(request('NEW5K'),/Verify your email/);
+    await asUser(u,'select public.request_race_access($1)',[r]);
+    await asUser(u,'select public.request_race_access($1)',[r]);
+    assert.equal((await directory()).rows[0].data.find(x=>x.id===r).requested,true);
+    await assert.rejects(asUser(u,'select public.claim_access_request_notification($1,$2)',[r,u]),/permission denied/);
+    async function claim(){await exec('set role service_role');try{return (await query('select public.claim_access_request_notification($1,$2) data',[r,u])).rows[0].data;}finally{await exec('reset role');}}
+    const notice=await claim();assert.equal(notice.requester,'requester@example.test');assert.deepEqual(notice.recipients.map(x=>x.email).sort(),['notify-admin@example.test','notify-owner@example.test']);assert.equal(await claim(),null);
+    const stamp=(await query('select requested_at::text as requested_at from race_private.access_requests where race_id=$1',[r])).rows[0].requested_at;
+    await assert.rejects(asUser(a,'select public.review_race_access_as($1,$2,$3,true,$4)',[r,u,stamp,'admin']),/Viewer or Editor/);
+    await asUser(a,'select public.review_race_access_as($1,$2,$3,true,$4)',[r,u,stamp,'editor']);
+    assert.equal((await query('select role from race_private.memberships where race_id=$1 and user_id=$2',[r,u])).rows[0].role,'editor');
+    await query('update auth.users set email_confirmed_at=null where id=$1',[u]);await assert.rejects(directory(),/Verify your email/);
+    await exec('set role anon');await assert.rejects(query('select public.available_races()'),/permission denied/);await exec('reset role');
   });
   await t.test('real concurrent clients cannot both claim one bed',{skip:!url},async()=>{
     const a=id(50), b=id(51), target=id(35);

@@ -145,3 +145,5 @@ test("expired callback shows a recoverable error and clears the URL", async ({ p
   await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
   await expect(page).toHaveURL("http://127.0.0.1:8084/");
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});

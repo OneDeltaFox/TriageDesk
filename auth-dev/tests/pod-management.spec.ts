@@ -222,3 +222,5 @@ test("editors do not receive pod administration controls",async({page})=>{
   await page.getByRole("button",{name:"Menu",exact:true}).click();
   await expect(page.getByRole("button",{name:"Manage Team",exact:true})).toHaveCount(0);
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});

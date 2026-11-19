@@ -53,3 +53,5 @@ for (const clearOnly of [false, true]) for (const width of [390, 1280]) test(`Re
   }
   expect(reporting).toEqual([]);
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});

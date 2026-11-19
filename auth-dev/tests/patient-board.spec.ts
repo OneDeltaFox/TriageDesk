@@ -143,3 +143,5 @@ test("unavailable patient endpoint fails closed without loading demo patients", 
   await expect(page.getByRole("alert")).toContainText("Unable to load patient records");
   await expect(page.getByRole("button",{name:"New Patient",exact:true})).toHaveCount(0);
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});

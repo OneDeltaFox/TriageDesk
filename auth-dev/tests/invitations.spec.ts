@@ -46,3 +46,5 @@ test("recipient accepts explicitly and uncertain requests require refresh", asyn
   await page.getByRole("button",{name:"Accept",exact:true}).click(); await page.getByRole("button",{name:"Confirm invitation"}).click();
   await expect(page.getByRole("button",{name:"Open board"})).toBeVisible();
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});

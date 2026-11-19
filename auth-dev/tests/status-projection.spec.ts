@@ -42,3 +42,5 @@ test("projection board fits race numbers and compact pods on desktop and mobile"
   }
   expect(errors).toEqual([]);
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});

@@ -33,8 +33,13 @@ export function createInvitationHandler({ appUrl, authenticate, claim, send }) {
     let email;
     try { email = await claim(client, body.raceId, body.invitationId); }
     catch { return reply(409, { error: "Invitation unavailable, already attempted, or sending limit reached. Refresh invitations." }); }
-    try { await send(email); }
+    try { await send(email, body.invitationId); }
     catch { return reply(502, { error: "Email delivery not confirmed. Check delivery logs before creating another invitation." }); }
     return reply(200, { sent: true });
   };
+}
+
+export function invitationRedirects(appUrl,invitationId) {
+ const setup=new URL(appUrl);setup.searchParams.set('setup','invite');setup.searchParams.set('invitation',invitationId);
+ return {newAccount:setup.href,existingAccount:appUrl};
 }

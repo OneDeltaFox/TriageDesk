@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { createClient, type Session } from "@supabase/supabase-js";
 import { LogIn, LogOut, UserRound, KeyRound, Activity } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { InvitationSetup } from "./invitation-setup";
 import { RaceList } from "./race-list";
 import "./styles.css";
 
@@ -23,7 +24,12 @@ const client = configured ? createClient(url, key, {
   },
 }) : null;
 
+const incomingSetup = new URLSearchParams(window.location.search);
+if(incomingSetup.get('setup')==='invite' && /^[0-9a-f-]{36}$/i.test(incomingSetup.get('invitation') ?? '')) sessionStorage.setItem('triagedesk-invite-setup',incomingSetup.get('invitation')!);
+const reviewRace = new URLSearchParams(window.location.search).get('review');
 function SignIn() {
+  const [setupId,setSetupId]=useState(sessionStorage.getItem('triagedesk-invite-setup'));
+  function finishSetup(){sessionStorage.removeItem('triagedesk-invite-setup');setSetupId(null);}
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(Boolean(client));
   const [busy, setBusy] = useState(false);
@@ -34,7 +40,9 @@ function SignIn() {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [editingPassword, setEditingPassword] = useState(false);
-  const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).href;
+  const redirectUrl = new URL(import.meta.env.BASE_URL, window.location.origin);
+  if(reviewRace) redirectUrl.searchParams.set("review",reviewRace);
+  const redirectTo = redirectUrl.href;
   const googleEnabled = import.meta.env["VITE_GOOGLE_AUTH_ENABLED"] === "true";
 
   useEffect(() => {
@@ -97,7 +105,7 @@ function SignIn() {
         email: email.trim(),
         options: {
           shouldCreateUser: false,
-          emailRedirectTo: new URL(import.meta.env.BASE_URL, window.location.origin).href,
+          emailRedirectTo: redirectTo,
         },
       });
       if (authError) setError("Unable to send a sign-in link. Check your invitation or try again later.");
@@ -141,7 +149,7 @@ function SignIn() {
     try {
       const { error: authError } = await client.auth.signOut({ scope: "local" });
       if (authError) setError("Sign-out failed. Please try again.");
-      else { setSession(null); setMessage(""); setEmail(""); setPassword(""); setConfirmation(""); setEditingPassword(false); }
+      else { finishSetup(); setSession(null); setMessage(""); setEmail(""); setPassword(""); setConfirmation(""); setEditingPassword(false); }
     } catch { setError("Sign-out failed. Please try again."); }
     finally { setBusy(false); }
   }
@@ -161,7 +169,7 @@ function SignIn() {
         {!session && <div className="grid gap-2"><h2 className="text-2xl font-semibold">{mode === "signup" ? "Create your account" : mode === "verify" ? "Verify your email" : mode === "reset" ? "Reset your password" : "Sign in to TriageDesk"}</h2><p className="text-sm text-muted-foreground">Use any email address. Gmail is not required. Your email is your sign-in name.</p></div>}
         {!client ? <p role="status">Sign-in is not configured.</p> : loading ?
           <p role="status">Checking session...</p> : session ? <>
-            {editingPassword ? <form onSubmit={savePassword} className="grid w-full max-w-md gap-4">
+            {setupId ? <InvitationSetup client={client} session={session} invitationId={setupId} onDone={finishSetup} /> : editingPassword ? <form onSubmit={savePassword} className="grid w-full max-w-md gap-4">
               <label className="grid gap-2">New password
                 <input type="password" required minLength={12} autoComplete="new-password" value={password} disabled={busy}
                   onChange={(event) => setPassword(event.target.value)} className="min-h-12 rounded border border-border bg-background px-3" />
@@ -174,7 +182,7 @@ function SignIn() {
               <button className={button} disabled={busy}>Save password</button>
               <button type="button" disabled={busy} onClick={() => { setEditingPassword(false); setPassword(""); setConfirmation(""); }}>Cancel</button>
             </form> : null}
-            <RaceList key={session.user.id} client={client} />
+            {!setupId && <RaceList key={session.user.id} client={client} reviewRace={reviewRace} />}
           </> : <form onSubmit={signIn} className="grid gap-4">
             <label className="grid gap-2 font-medium">Email
               <input type="email" required autoComplete="email" value={email}

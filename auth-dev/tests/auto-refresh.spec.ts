@@ -42,3 +42,5 @@ test("automatic updates pause for edits and recover after read failures", async 
   await expect(page.getByText(/Auto-update on/)).toBeVisible({ timeout: 12000 });
   await page.screenshot({ path: "test-results/automatic-updates.png", fullPage: true });
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});

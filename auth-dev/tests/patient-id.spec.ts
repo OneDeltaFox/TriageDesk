@@ -13,3 +13,5 @@ test("patient IDs work without secure-context randomUUID", () => {
     else Reflect.deleteProperty(globalThis.crypto, "randomUUID");
   }
 });
+
+test.beforeEach(async({page})=>{await page.route("**/rest/v1/rpc/available_races",r=>r.fulfill({json:[]}));});
