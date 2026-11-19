@@ -797,7 +797,7 @@ test('database foundation', async (t) => {
     await assert.rejects(asUser(u,'select public.claim_access_request_notification($1,$2)',[r,u]),/permission denied/);
     async function claim(){await exec('set role service_role');try{return (await query('select public.claim_access_request_notification($1,$2) data',[r,u])).rows[0].data;}finally{await exec('reset role');}}
     const notice=await claim();assert.equal(notice.requester,'requester@example.test');assert.deepEqual(notice.recipients.map(x=>x.email).sort(),['notify-admin@example.test','notify-owner@example.test']);assert.equal(await claim(),null);
-    const stamp=(await query('select requested_at from race_private.access_requests where race_id=$1',[r])).rows[0].requested_at;
+    const stamp=(await query('select requested_at::text as requested_at from race_private.access_requests where race_id=$1',[r])).rows[0].requested_at;
     await assert.rejects(asUser(a,'select public.review_race_access_as($1,$2,$3,true,$4)',[r,u,stamp,'admin']),/Viewer or Editor/);
     await asUser(a,'select public.review_race_access_as($1,$2,$3,true,$4)',[r,u,stamp,'editor']);
     assert.equal((await query('select role from race_private.memberships where race_id=$1 and user_id=$2',[r,u])).rows[0].role,'editor');
