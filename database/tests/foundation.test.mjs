@@ -726,6 +726,33 @@ test('database foundation', async (t) => {
     await assert.rejects(query('select public.set_race_member($1,$2,null,$3)',[teamRace,'editor@example.com','editor']),/permission denied/);
     await exec('reset role');
   });
+  await t.test('Admin manages operations but cannot escalate access or reset race data',async()=>{
+    const r=id(9954), a=id(9951), m=id(9952), v=id(9955);
+    await query("insert into auth.users(id,email,email_confirmed_at) values ($1,'admin@test.example',now()),($2,'member@test.example',now())",[a,m]);
+    await query("insert into race_private.races(id,owner_id,name) values($1,$2,'Admin test')",[r,owner]);
+    const change=(who,email,old,next)=>asUser(who,'select public.set_race_member($1,$2,$3,$4)',[r,email,old,next]);
+    await change(owner,'admin@test.example',null,'admin');
+    await asUser(a,'select public.race_team($1)',[r]);
+    await assert.rejects(asUser(a,'select public.patient_board($1)',[foreignRace]),/Access denied/);
+    await change(a,'member@test.example',null,'viewer');
+    await change(a,'member@test.example','viewer','editor');
+    await assert.rejects(change(a,'member@test.example','editor','admin'),/Only the Owner/);
+    await assert.rejects(change(a,'admin@test.example','admin',null),/Only the Owner/);
+    await assert.rejects(change(a,'owner@example.com',null,'viewer'),/Owner access/);
+    await asUser(a,'select public.create_pods($1,$2)',[r,JSON.stringify([{name:'Pod 1',kind:'regular',color:'#ff8800',beds:2,capabilities:[]}])]);
+    const beds=(await query('select id from race_private.beds where race_id=$1 order by label',[r])).rows;
+    await asUser(a,'select public.save_patient($1,$2,null,$3,$4)',[r,v,JSON.stringify({bib:'ADMIN-TEST',triage:'untriaged'}),beds[0].id]);
+    await asUser(a,'select public.patient_board($1)',[r]);
+    await asUser(a,"select public.move_patient($1,1,'assigned',$2)",[v,beds[1].id]);
+    await asUser(a,"select public.rename_race($1,'Admin test','Admin renamed')",[r]);
+    const preview=(await asUser(owner,'select public.end_race_preview($1) p',[r])).rows[0].p;
+    await assert.rejects(asUser(a,'select public.end_race_preview($1)',[r]),/Access denied/);
+    await assert.rejects(asUser(a,"select public.clear_race_patient_data($1,$2,$3,'CLEAR DATA',true)",[r,preview.token,preview.generation]),/Access denied/);
+    await assert.rejects(asUser(a,"select public.end_race($1,$2,$3,'END RACE',true)",[r,preview.token,preview.generation]),/Access denied/);
+    await change(owner,'admin@test.example','admin','viewer');
+    await assert.rejects(asUser(a,'select public.race_team($1)',[r]),/Access denied/);
+    await assert.rejects(asUser(a,'select public.patient_board($1)',[r]),/Access denied/);
+  });
   await t.test('real concurrent clients cannot both claim one bed',{skip:!url},async()=>{
     const a=id(50), b=id(51), target=id(35);
     await query('insert into race_private.beds(id,race_id,pod_id,label) values($1,$2,$3,$4)',[target,race,regular,'1-3']);

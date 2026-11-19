@@ -35,6 +35,7 @@ export function PatientBoard({ client, race, onBack }: {
   const [complaintsOpen, setComplaintsOpen] = useState(false);
   const [complaints, setComplaints] = useState<ComplaintOption[]>(defaultComplaintOptions);
   const [complaintsReady, setComplaintsReady] = useState(false);
+  const canManage = race.role === "owner" || race.role === "admin";
   async function loadComplaints() {
     const {data,error}=await client.rpc("race_complaints",{p_race:race.id});
     if (!error && Array.isArray(data)) { setComplaints(data); setComplaintsReady(true); }
@@ -138,7 +139,7 @@ export function PatientBoard({ client, race, onBack }: {
       since: visit.medical_started_at ? new Date(visit.medical_started_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : undefined } : bed;
   }) })) : [];
   const settings = (closeMenu: () => void) => <div className="grid gap-2" onClick={event => { if ((event.target as HTMLElement).closest("button")) closeMenu(); }}>
-    {race.role === "owner" && race.state === "active" && <>
+    {canManage && race.state === "active" && <>
       <button className="min-h-11 rounded border px-3" onClick={()=>setPodsOpen(true)}>Add pods</button>
       <button className="min-h-11 rounded border px-3" onClick={() => setTeamOpen(true)}>Manage Team</button>
       <button className="min-h-11 rounded border px-3" onClick={() => setRenameOpen(true)}>Rename Race</button>
@@ -165,13 +166,13 @@ export function PatientBoard({ client, race, onBack }: {
         <TentBoard connected={{ pods, incoming: snapshot.visits.filter(v => !v.dispositioned_at && !livePlacements.some(p => p.visit_id === v.id)).map(v => ({ id: v.id, ...details(v), source: v.source, eta: v.eta })),
           dispositions: snapshot.visits.filter(v => v.dispositioned_at).map(v => ({ id: v.id, ...details(v), category: v.disposition, time: new Date(v.dispositioned_at!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }), from: "Medical", description: v.other_disposition ?? undefined })),
           eventName: race.name, run, settings, duplicateVisitId, dismissDuplicate:()=>setDuplicateVisitId(undefined), complaints: complaints.filter(x=>x.enabled).map(x=>x.label), readOnly: race.state !== "active",
-          ...(race.role === "owner" && race.state === "active" ? { onEditPod: (id: string) => setEditingPod(snapshot.pods.find(pod => pod.id === id) ?? null) } : {}) }} />
+          ...(canManage && race.state === "active" ? { onEditPod: (id: string) => setEditingPod(snapshot.pods.find(pod => pod.id === id) ?? null) } : {}) }} />
       </div>}
     {editingPod && <EditPod key={editingPod.id} client={client} pod={editingPod} onClose={() => setEditingPod(null)} onSaved={() => { void refresh(); }} />}
-    {podsOpen && race.role === "owner" && <AddPods client={client} raceId={race.id} pods={snapshot?.pods ?? []} open hideTrigger onOpenChange={setPodsOpen} onSaved={()=>void refresh()}/>}
-    {teamOpen && race.role === "owner" && <ManageTeam client={client} raceId={race.id} onClose={() => setTeamOpen(false)} />}
-    {complaintsOpen && race.role === "owner" && <ManageComplaints client={client} raceId={race.id} initial={complaints} onClose={() => setComplaintsOpen(false)} onSaved={() => void loadComplaints()} />}
-    {renameOpen && race.role === "owner" && <RaceEditor client={client} race={race} onClose={() => setRenameOpen(false)} onSaved={onBack} />}
+    {podsOpen && canManage && <AddPods client={client} raceId={race.id} pods={snapshot?.pods ?? []} open hideTrigger onOpenChange={setPodsOpen} onSaved={()=>void refresh()}/>}
+    {teamOpen && canManage && <ManageTeam client={client} raceId={race.id} isOwner={race.role === "owner"} onClose={() => setTeamOpen(false)} />}
+    {complaintsOpen && canManage && <ManageComplaints client={client} raceId={race.id} initial={complaints} onClose={() => setComplaintsOpen(false)} onSaved={() => void loadComplaints()} />}
+    {renameOpen && canManage && <RaceEditor client={client} race={race} onClose={() => setRenameOpen(false)} onSaved={onBack} />}
     {endOpen && race.role === "owner" && <EndRace client={client} raceId={race.id} raceName={race.name} onClose={() => { setEndOpen(false); void refresh(); }} onChanged={onBack} />}
   </section>;
 }

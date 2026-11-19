@@ -61,7 +61,7 @@ export function RaceEditor({ client, race, sources = [], onClose, onSaved }: {
         {!race && <><p className="break-words">Timezone: {timezone}</p><p className="break-words">Layout: {sources.find(item => item.id === source)?.name ?? "Empty"}</p>
           <p>No patients, timers, or pending invitations will be copied. All copied pods and pools will be open and ready. The previous race is not ended or cleared.</p>
           {copyTeam ? <section aria-label="Team access to copy"><h3 className="font-semibold">Team access to copy</h3>
-            {team.filter(member => member.role !== "owner").length === 0 ? <p>No Editors or Viewers to copy.</p> : <ul className="divide-y divide-border">{team.filter(member => member.role !== "owner").map(member => <li key={member.id} className="break-words py-2">{member.email} <strong className="capitalize">{member.role}</strong></li>)}</ul>}
+            {team.filter(member => member.role !== "owner").length === 0 ? <p>No Admins, Editors or Viewers to copy.</p> : <ul className="divide-y divide-border">{team.filter(member => member.role !== "owner").map(member => <li key={member.id} className="break-words py-2">{member.email} <strong className="capitalize">{member.role}</strong></li>)}</ul>}
             <p>These users will immediately have access to the new race. No invitations or emails will be sent.</p></section> : <p>No team access will be copied.</p>}</>}
         <div className="flex flex-wrap gap-2"><button className={button} disabled={busy} onClick={() => void save()}>{busy ? "Saving..." : race ? "Confirm rename" : "Confirm new race"}</button>
           <button className={button} disabled={busy || Boolean(error)} onClick={() => setReview(false)}>Back</button></div>
