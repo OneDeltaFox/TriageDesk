@@ -60,6 +60,7 @@ for (const role of ['owner','admin']) test(role+' team controls protect elevated
  await page.goto('/');await page.getByRole('button',{name:'Open board'}).click();await page.getByText('Menu',{exact:true}).click();
  if(role==='admin') await expect(page.getByRole('button',{name:'End Race',exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Manage Team',exact:true}).click();const dialog=page.getByRole('dialog');
+ await expect(dialog.getByLabel('Invitation role').locator('option[value="admin"]')).toHaveCount(role==='owner'?1:0);
  await expect(dialog.getByLabel('Role for owner@example.com')).toHaveCount(0);
  await expect(dialog.getByLabel('Role for admin@example.com')).toHaveCount(role==='owner'?1:0);
  await expect(dialog.getByLabel('Role for member@example.com').locator('option[value="admin"]')).toHaveCount(role==='owner'?1:0);

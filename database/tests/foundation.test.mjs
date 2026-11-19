@@ -776,6 +776,29 @@ test('database foundation', async (t) => {
     await query('update auth.users set email_confirmed_at=null where id=$1',[u]);
     await assert.rejects(request('NEW5K'),/Verify your email/);
   });
+  await t.test('only Owners invite Admins; verified acceptance grants Admin with owner controls protected',async()=>{
+    const r=id(9970),a=id(9971),recipient=id(9972),inviteOwner=id(9973);
+    await query("insert into auth.users(id,email,email_confirmed_at) values($1,'invite-owner@example.test',now())",[inviteOwner]);
+    await query("insert into auth.users(id,email,email_confirmed_at) values($1,'inv-admin@example.test',now()),($2,'new-admin@example.test',null)",[a,recipient]);
+    await query("insert into race_private.races(id,owner_id,name) values($1,$2,'Admin invites')",[r,inviteOwner]);
+    await query("insert into race_private.memberships values($1,$2,'admin')",[r,a]);
+    const invite=(who,email,role)=>asUser(who,'select public.create_race_invitation($1,$2,$3) id',[r,email,role]);
+    await assert.rejects(invite(a,'new-admin@example.test','admin'),/Only the Owner/);
+    const inv=(await invite(inviteOwner,'new-admin@example.test','admin')).rows[0].id;
+    await assert.rejects(asUser(a,'select public.cancel_race_invitation($1,$2)',[r,inv]),/Only the Owner/);
+    await assert.rejects(asUser(a,'select public.claim_invitation_email($1,$2)',[r,inv]),/Only the Owner/);
+    await assert.rejects(asUser(recipient,'select public.accept_race_invitation($1)',[inv]),/Verified email/);
+    await query('update auth.users set email_confirmed_at=now() where id=$1',[recipient]);
+    await assert.rejects(asUser(a,'select public.accept_race_invitation($1)',[inv]),/Invitation unavailable/);
+    await asUser(inviteOwner,'select public.claim_invitation_email($1,$2)',[r,inv]);
+    await asUser(recipient,'select public.accept_race_invitation($1)',[inv]);
+    assert.equal((await query('select role from race_private.memberships where race_id=$1 and user_id=$2',[r,recipient])).rows[0].role,'admin');
+    await asUser(recipient,'select public.patient_board($1)',[r]);
+    await assert.rejects(asUser(recipient,'select public.end_race_preview($1)',[r]),/Access denied/);
+    await assert.rejects(invite(recipient,'another@example.test','admin'),/Only the Owner/);
+    const editorInvite=(await invite(a,'editor-invite@example.test','editor')).rows[0].id;
+    await asUser(a,'select public.cancel_race_invitation($1,$2)',[r,editorInvite]);
+  });
   await t.test('real concurrent clients cannot both claim one bed',{skip:!url},async()=>{
     const a=id(50), b=id(51), target=id(35);
     await query('insert into race_private.beds(id,race_id,pod_id,label) values($1,$2,$3,$4)',[target,race,regular,'1-3']);
