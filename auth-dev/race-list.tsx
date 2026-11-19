@@ -6,6 +6,7 @@ import { RaceEditor } from "./race-editor";
 import { RaceLayout } from "./race-layout";
 import { PatientBoard } from "./patient-board";
 import { Invitations } from "./invitations";
+import { AccessRequests } from "./access-requests";
 
 type Race = { id: string; name: string; timezone: string; state: string; role: string; archived?: boolean };
 
@@ -58,6 +59,7 @@ export function RaceList({ client }: { client: SupabaseClient }) {
     ? <RaceLayout key={selected.id} client={client} race={selected} onBack={() => setSelected(null)} />
     : <PatientBoard key={selected.id} client={client} race={selected} onBack={() => { setSelected(null); setAttempt(value => value + 1); }} />;
   return <div className="race-home" aria-label="Your races">
+    <details className="rounded-lg border border-border p-3" open={!loading && races.length===0}><summary className="cursor-pointer font-semibold">Join a race</summary><AccessRequests client={client} /></details>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h3 className="text-2xl font-semibold">Your races</h3>
       {races.some(race => race.role === "owner") && <button className="desk-primary ml-auto" onClick={() => setCreating(true)}><Plus size={18} />Create New Race</button>}

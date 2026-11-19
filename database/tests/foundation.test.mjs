@@ -60,6 +60,41 @@ test('database foundation', async (t) => {
   const transition=(user,v,revision,action,destination=null,category=null,other=null)=>asUser(user,
     'select race_private.transition_visit($1,$2,$3,$4,$5,$6)',[v,revision,action,destination,category,other]);
 
+  await t.test('verified users request access without reading races; owners approve Viewer only', async()=>{
+    const u=id(9901),r=id(9902);
+    await query("insert into auth.users(id,email) values ($1,'join@example.test')",[u]);
+    await query("insert into race_private.races(id,owner_id,name) values($1,$2,'Join test')",[r,owner]);
+    const request=()=>asUser(u,'select public.request_race_access($1)',[r]);
+    await assert.rejects(request(),/Verify your email/);
+    await query('update auth.users set email_confirmed_at=clock_timestamp() where id=$1',[u]);
+    await request(); await request();
+    assert.equal((await asUser(u,'select * from public.my_races()')).rows.length,0);
+    await assert.rejects(asUser(u,'select public.patient_board($1)',[r]),/Access denied/);
+    await assert.rejects(asUser(u,'select public.race_access_requests($1)',[r]),/Access denied/);
+    await assert.rejects(asUser(editor,'select public.race_access_requests($1)',[r]),/Access denied/);
+    await assert.rejects(asUser(u,'select * from race_private.access_requests'),/permission denied/);
+    const list=async()=>(await asUser(owner,'select public.race_access_requests($1) x',[r])).rows[0].x;
+    let items=await list(); assert.equal(items.length,1);
+    const review=(who,stamp,approve)=>asUser(who,'select public.review_race_access($1,$2,$3,$4)',[r,u,stamp,approve]);
+    await assert.rejects(review(u,items[0].requested_at,true),/Access denied/);
+    await assert.rejects(review(owner,'2000-01-01',true),/Request changed/);
+    await review(owner,items[0].requested_at,false);
+    assert.equal((await asUser(u,'select * from public.my_races()')).rows.length,0);
+    await request(); items=await list();
+    await review(owner,items[0].requested_at,true);
+    assert.equal((await asUser(u,'select * from public.my_races()')).rows[0].role,'viewer');
+    await assert.rejects(asUser(u,'select public.patient_board($1)',[r]),/Access denied/);
+    assert.equal((await list()).length,0);
+    assert.equal((await query('select new_role from race_private.team_events where race_id=$1',[r])).rows[0].new_role,'viewer');
+    await assert.rejects(review(owner,items[0].requested_at,true),/Request changed/);
+    await query('delete from race_private.memberships where race_id=$1',[r]);
+    await query("update race_private.races set state='closed' where id=$1",[r]);
+    await assert.rejects(request(),/Race unavailable/);
+    await query('delete from race_private.team_events where race_id=$1',[r]);
+    await query('delete from race_private.races where id=$1',[r]);
+    await query('delete from auth.users where id=$1',[u]);
+  });
+
   await t.test('Incoming plans do not start care and active race numbers cannot be duplicated', async()=>{
     const r=id(9800), p=id(9801), b=id(9802), v=id(9803), other=id(9804);
     await query('insert into race_private.races(id,owner_id,name) values ($1,$2,$3)',[r,owner,'Intake test']);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Invitations } from "./invitations";
+import { AccessRequests } from "./access-requests";
 import { Trash2, UserPlus, RefreshCw, Shield } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -81,6 +82,7 @@ export function ManageTeam({ client, raceId, onClose }: { client: SupabaseClient
         </form>
       </div>}
       {!pending && ready && <Invitations client={client} raceId={raceId} />}
+      {!pending && ready && <AccessRequests client={client} raceId={raceId} onApproved={()=>void load()} />}
       {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
       <div className="flex gap-2"><button className={button} disabled={busy} aria-label="Refresh team" title="Refresh team" onClick={() => void load()}><RefreshCw size={18} /></button><button className={button} disabled={busy} onClick={onClose}>Close</button></div>
     </DialogContent>
