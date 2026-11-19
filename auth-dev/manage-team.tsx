@@ -5,10 +5,10 @@ import { AccessRequests } from "./access-requests";
 import { Trash2, UserPlus, RefreshCw, Shield } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
-type Role = "editor" | "viewer";
+type Role = "admin" | "editor" | "viewer";
 type Member = { id: string; email: string; role: Role | "owner" };
 type Change = { email: string; previous: Role | null; next: Role | null };
-export function ManageTeam({ client, raceId, onClose }: { client: SupabaseClient; raceId: string; onClose: () => void }) {
+export function ManageTeam({ client, raceId, isOwner = false, onClose }: { client: SupabaseClient; raceId: string; isOwner?: boolean; onClose: () => void }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("viewer");
@@ -34,7 +34,7 @@ export function ManageTeam({ client, raceId, onClose }: { client: SupabaseClient
       const result = await request("race_team", { p_race: raceId });
       if (result.error) throw result.error;
       if (alive.current) { setMembers(result.data ?? []); setReady(true); }
-    } catch { if (alive.current) { setMembers([]); setError("Unable to load team. Owner access and migration 011 are required."); } }
+    } catch { if (alive.current) { setMembers([]); setError("Unable to load team. Refresh and check your team-management access."); } }
     finally { lock.current = false; if (alive.current) setBusy(false); }
   }
   useEffect(() => { alive.current=true; void load(); return () => { alive.current=false; controller.current?.abort(); }; }, [client,raceId]);
@@ -61,13 +61,13 @@ export function ManageTeam({ client, raceId, onClose }: { client: SupabaseClient
       {pending ? <div className="grid gap-4">
         <p className="break-all font-semibold">{pending.email}</p>
         <p>{pending.previous ?? "No access"} to {pending.next ?? "No race access"}</p>
-        <p>{pending.next === "editor" ? "Can view and edit patients. Cannot manage pods or the team." : pending.next === "viewer" ? "Can view the status board, including race numbers, complaints and timers. Cannot edit." : "Future requests to this race will be denied. Already displayed information cannot be recalled."}</p>
+        <p>{pending.next === "admin" ? "Can manage patients, pods, race settings, Editors and Viewers. Cannot appoint Admins, change the Owner, clear patient data, or end the race." : pending.next === "editor" ? "Can view and edit patients. Cannot manage pods or the team." : pending.next === "viewer" ? "Can view the status board, including race numbers and timers. Cannot edit." : "Future requests to this race will be denied. Already displayed information cannot be recalled."}</p>
         <div className="flex flex-wrap gap-2"><button className={button} disabled={busy || !ready} onClick={() => void save()}>Confirm change</button><button className={button} disabled={busy} onClick={() => setPending(null)}>Back</button></div>
       </div> : <div className="grid gap-4">
         <ul className="divide-y">{members.map(member => <li key={member.id} className="flex flex-wrap items-center gap-2 py-3">
           <span className="min-w-0 flex-1 break-all">{member.email}</span>
-          {member.role === "owner" ? <span className="flex items-center gap-2"><Shield size={16} />Owner</span> : <>
-            <select aria-label={`Role for ${member.email}`} value={member.role} disabled={busy || !ready} className="min-h-11 rounded border bg-background px-2" onChange={event => { setMessage(""); setPending({ email: member.email, previous: member.role as Role, next: event.target.value as Role }); }}><option value="viewer">Viewer</option><option value="editor">Editor</option></select>
+          {member.role === "owner" || (member.role === "admin" && !isOwner) ? <span className="flex items-center gap-2"><Shield size={16} />{member.role === "owner" ? "Owner" : "Admin"}</span> : <>
+            <select aria-label={`Role for ${member.email}`} value={member.role} disabled={busy || !ready} className="min-h-11 rounded border bg-background px-2" onChange={event => { setMessage(""); setPending({ email: member.email, previous: member.role as Role, next: event.target.value as Role }); }}><option value="viewer">Viewer</option><option value="editor">Editor</option>{isOwner && <option value="admin">Admin</option>}</select>
             <button className={button} disabled={busy || !ready} aria-label={`Remove ${member.email}`} title={`Remove ${member.email}`} onClick={() => { setMessage(""); setPending({ email: member.email, previous: member.role as Role, next: null }); }}><Trash2 size={18} /></button>
           </>}
         </li>)}</ul>
@@ -77,7 +77,7 @@ export function ManageTeam({ client, raceId, onClose }: { client: SupabaseClient
           setError(""); setMessage(""); setPending({ email: value, previous: null, next: role });
         }}>
           <label className="grid gap-1">Existing account email<input type="email" required maxLength={320} value={email} disabled={busy || !ready} onChange={event => setEmail(event.target.value)} className="min-h-11 min-w-0 rounded border bg-background px-3" /></label>
-          <label className="grid gap-1">Access<select value={role} disabled={busy || !ready} onChange={event => setRole(event.target.value as Role)} className="min-h-11 rounded border bg-background px-3"><option value="viewer">Viewer</option><option value="editor">Editor</option></select></label>
+          <label className="grid gap-1">Access<select value={role} disabled={busy || !ready} onChange={event => setRole(event.target.value as Role)} className="min-h-11 rounded border bg-background px-3"><option value="viewer">Viewer</option><option value="editor">Editor</option>{isOwner && <option value="admin">Admin</option>}</select></label>
           <button className={button} disabled={busy || !ready}><UserPlus size={18} />Add member</button>
         </form>
       </div>}

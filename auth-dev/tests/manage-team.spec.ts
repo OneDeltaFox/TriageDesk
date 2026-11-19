@@ -50,3 +50,17 @@ test("owner confirms additions, role changes and removals; uncertain saves requi
   await dialog.getByRole("button",{name:"Refresh team"}).click();
   await expect(dialog.getByLabel("Role for new@example.com")).toHaveValue("viewer");
 });
+
+for (const role of ['owner','admin']) test(role+' team controls protect elevated roles',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('tent-flow-dev-auth',JSON.stringify({access_token:'token',refresh_token:'refresh',token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'actor'}})));
+ for(const endpoint of ['race_invitations','my_race_invitations','race_access_requests']) await page.route('**/rest/v1/rpc/'+endpoint,r=>r.fulfill({json:[]}));
+ await page.route('**/rest/v1/rpc/my_races',r=>r.fulfill({json:[{id:'race',name:'Admin Test',role,state:'active'}]}));
+ await page.route('**/rest/v1/rpc/patient_board',r=>r.fulfill({json:{pods:[],visits:[],placements:[],turnovers:[]}}));
+ await page.route('**/rest/v1/rpc/race_team',r=>r.fulfill({json:[{id:'owner',email:'owner@example.com',role:'owner'},{id:'admin',email:'admin@example.com',role:'admin'},{id:'member',email:'member@example.com',role:'viewer'}]}));
+ await page.goto('/');await page.getByRole('button',{name:'Open board'}).click();await page.getByText('Menu',{exact:true}).click();
+ if(role==='admin') await expect(page.getByRole('button',{name:'End Race',exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Manage Team',exact:true}).click();const dialog=page.getByRole('dialog');
+ await expect(dialog.getByLabel('Role for owner@example.com')).toHaveCount(0);
+ await expect(dialog.getByLabel('Role for admin@example.com')).toHaveCount(role==='owner'?1:0);
+ await expect(dialog.getByLabel('Role for member@example.com').locator('option[value="admin"]')).toHaveCount(role==='owner'?1:0);
+});
