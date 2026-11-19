@@ -231,6 +231,10 @@
   min-height: 44px;
 }
 
+.tent-board button.patient-arrival-button {
+  min-height: 28px;
+}
+
 .board-modal > button {
   display: flex;
   width: 44px;

@@ -334,12 +334,14 @@ function PatientCard({
   source,
   onEdit,
   dispositionSource,
+  arrivalAction,
 }: {
   patient: PatientSummary;
   locationLabel: string;
   source?: PatientRef | undefined;
   onEdit?: (() => void) | undefined;
   dispositionSource?: PatientRef | undefined;
+  arrivalAction?: React.ReactNode;
 }) {
   return (
     <div className="min-w-0">
@@ -361,7 +363,10 @@ function PatientCard({
             <p className="break-words text-xs">{patient.operationalStatus}</p>
           )}
         </div>
-        <span className="font-mono text-[10px]">{locationLabel}</span>
+        <div className="ml-auto flex max-w-36 flex-col items-end gap-1 text-right">
+          <span className="font-mono text-[10px]">{locationLabel}</span>
+          {arrivalAction}
+        </div>
       </PatientSurface>
       {onEdit && (dispositionSource || source) && (
         <PatientDispositionMenu source={(dispositionSource || source)!} bib={patient.bib} />
@@ -437,18 +442,20 @@ function IncomingCard({
         locationLabel={[patient.plannedPodName ? `Planned: ${patient.plannedPodName}` : "Incoming", patient.eta ? `ETA ${patient.eta}` : ""].filter(Boolean).join(" · ")}
         source={disabled ? undefined : { kind: "incoming", incomingId: patient.id }}
         onEdit={disabled ? undefined : onEdit}
-      />
-      {patient.plannedPodId && onArrive && (
+        arrivalAction={patient.plannedPodId && onArrive && (
+        <span onPointerDown={event => event.stopPropagation()} onMouseDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()} onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
         <button
           type="button"
           disabled={disabled || !!unavailable}
           onClick={onArrive}
           aria-label={`Arrive patient ${patient.bib} in ${plannedPod?.name ?? "planned pod"}`}
-          className="mt-1 min-h-11 w-full rounded-sm bg-signal px-3 text-sm font-semibold text-background disabled:cursor-not-allowed disabled:opacity-50"
+          className="patient-arrival-button rounded-sm bg-signal px-2 py-1 text-[11px] font-bold leading-none text-background disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {unavailable || `Arrive in ${plannedPod?.name}`}
+          {unavailable ? `${plannedPod?.name ?? "Pod"} ${plannedPod?.closed ? "closed" : plannedPod ? "full" : "unavailable"}` : "Arrive →"}
         </button>
+        </span>
       )}
+      />
       {patient.source && (
         <p className="mt-1 truncate text-xs text-muted-foreground">{patient.source}</p>
       )}

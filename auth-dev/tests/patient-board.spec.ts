@@ -20,6 +20,7 @@ for (const state of ["open", "full", "closed"] as const) {
     await page.goto("/"); await page.getByRole("button",{name:"Open board"}).click();
     const arrive=page.getByRole("button",{name:"Arrive patient 123 in Pod 1"});
     if(state==="open") {
+      await page.screenshot({path:"test-results/incoming-arrival-pill-phone.png",fullPage:true});
       await arrive.click();
       await expect(arrive).toHaveCount(0);
       await expect(page.getByRole("button",{name:"Edit patient 123",exact:true})).toBeVisible();
@@ -27,7 +28,7 @@ for (const state of ["open", "full", "closed"] as const) {
       await expect(page.getByRole("dialog")).toHaveCount(0);
     } else {
       await expect(arrive).toBeDisabled();
-      await expect(arrive).toHaveText(`Planned pod ${state}`);
+      await expect(arrive).toHaveText(`Pod 1 ${state}`);
       expect(moves).toBe(0);
     }
   });
