@@ -12,7 +12,7 @@ import { ManageTeam } from "./manage-team";
 import { EndRace } from "./end-race";
 import { RaceEditor } from "./race-editor";
 import { ManageComplaints } from "./manage-complaints";
-import { defaultComplaintOptions, type ComplaintOption } from "@/lib/complaints";
+import { mostUsedComplaints, defaultComplaintOptions, type ComplaintOption } from "@/lib/complaints";
 
 type Visit = { id: string; revision: number; bib: string; triage: Triage; complaint: string; notes: string; source: string; eta: string; planned_pod_id?: string;
   medical_started_at: string | null; dispositioned_at: string | null; disposition: DispositionCategory; other_disposition: string | null };
@@ -168,6 +168,7 @@ export function PatientBoard({ client, race, onBack }: {
       <div inert={busy || needsRefresh || syncFailed || race.state !== "active"}>
         <TentBoard connected={{ pods, incoming: snapshot.visits.filter(v => !v.dispositioned_at && !livePlacements.some(p => p.visit_id === v.id)).map(v => ({ id: v.id, ...details(v), source: v.source, eta: v.eta })),
           dispositions: snapshot.visits.filter(v => v.dispositioned_at).map(v => ({ id: v.id, ...details(v), category: v.disposition, time: new Date(v.dispositioned_at!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }), from: "Medical", description: v.other_disposition ?? undefined })),
+          frequentComplaints: mostUsedComplaints(snapshot.visits, complaints.filter(x=>x.enabled).map(x=>x.label)),
           eventName: race.name, run, settings, duplicateVisitId, dismissDuplicate:()=>setDuplicateVisitId(undefined), complaints: complaints.filter(x=>x.enabled).map(x=>x.label), readOnly: race.state !== "active",
           ...(canManage && race.state === "active" ? { onEditPod: (id: string) => setEditingPod(snapshot.pods.find(pod => pod.id === id) ?? null) } : {}) }} />
       </div>}

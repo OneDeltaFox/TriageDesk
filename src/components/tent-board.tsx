@@ -63,6 +63,7 @@ const triageOptions: Triage[] = ["untriaged", "immediate", "delayed", "minor"];
 const podColorOptions = ["#ef4444", "#f59e0b", "#22c55e", "#06b6d4", "#8b5cf6", "#ec4899"];
 const otherComplaintValue = "Other";
 const complaintOptions = [...defaultComplaints, otherComplaintValue];
+const FrequentComplaintsContext = createContext<string[]>([]);
 const ComplaintOptionsContext = createContext<string[]>(complaintOptions);
 
 const PODS_STORAGE_KEY = "tent-board-pods-v3";
@@ -388,9 +389,10 @@ function ComplaintField({
   onOtherChange: (value: string) => void;
 }) {
   const available = useContext(ComplaintOptionsContext);
+  const frequent = useContext(FrequentComplaintsContext);
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <ComplaintPicker value={choice} options={available} onChange={onChoiceChange} />
+      <ComplaintPicker frequent={frequent} value={choice} options={available} onChange={onChoiceChange} />
       {choice === otherComplaintValue && (
         <label>
           Other complaint
@@ -1621,6 +1623,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
     );
 
   return (
+    <FrequentComplaintsContext.Provider value={connected?.frequentComplaints ?? []}>
     <ComplaintOptionsContext.Provider value={connected?.complaints ? [...connected.complaints, otherComplaintValue] : complaintOptions}>
     <DispositionActionContext.Provider
       value={(ref, bib, category) => {
@@ -2328,5 +2331,6 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
       </PatientMovement>
     </DispositionActionContext.Provider>
     </ComplaintOptionsContext.Provider>
+    </FrequentComplaintsContext.Provider>
   );
 }
