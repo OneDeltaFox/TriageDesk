@@ -1821,7 +1821,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                       onChoiceChange={setNewPatientComplaintChoice}
                       onOtherChange={setNewPatientOtherComplaint}
                     />
-                    </fieldset><fieldset className="patient-form-section"><legend>Placement</legend><label>
+                    </fieldset><fieldset className="patient-form-section"><legend>Placement</legend>{connected && !newPatientAssignPod && plannedPodField(newPatientPlannedPod, setNewPatientPlannedPod)}<label>
                       Assign Pod
                       <select
                         value={newPatientAssignPod}
@@ -1841,7 +1841,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                         })}
                       </select>
                     </label>
-                    {connected && !newPatientAssignPod && plannedPodField(newPatientPlannedPod, setNewPatientPlannedPod)}
+
                     </fieldset><fieldset className="patient-form-section"><legend>Triage &amp; notes</legend><label>
                       Triage
                       <select
@@ -2137,7 +2137,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                         onOtherChange={setEditPatientOtherComplaint}
                       />
 
-                      </fieldset><fieldset className="patient-form-section"><legend>Placement</legend><label>
+                      </fieldset><fieldset className="patient-form-section"><legend>Placement</legend>{connected && editPatient.kind === "incoming" && !editPatientPod && plannedPodField(editPatientPlannedPod, setEditPatientPlannedPod)}<label>
                       Assign Pod
                         <select
                           value={editPatientPod}
@@ -2167,7 +2167,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                           })}
                         </select>
                       </label>
-                      {connected && editPatient.kind === "incoming" && !editPatientPod && plannedPodField(editPatientPlannedPod, setEditPatientPlannedPod)}
+
                       </fieldset><fieldset className="patient-form-section"><legend>Triage &amp; notes</legend><label>
                         Triage
                         <select
