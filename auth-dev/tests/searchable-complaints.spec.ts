@@ -22,6 +22,7 @@ test("searchable complaints support intake, editing, custom entries and clearing
   const dialog=page.getByRole("dialog");
   const picker=dialog.getByRole("combobox",{name:"Chief complaint",exact:true});
   await dialog.getByLabel("Race #",{exact:true}).fill("SEARCH-1");
+  await page.screenshot({path:"test-results/patient-dialog-polish-phone.png",fullPage:true});
   await picker.fill("PAIN chest");
   await expect(dialog.getByRole("option",{name:"Chest Pain",exact:true})).toBeVisible();
   await expect(dialog.getByRole("option",{name:"Back Pain",exact:true})).toHaveCount(0);

@@ -1700,8 +1700,8 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                 <button type="button" className="flex min-h-11 items-center gap-2 rounded border px-3" onClick={() => setMenuOpen(true)}><Menu size={18} />Menu</button>
                 <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
                   <DialogContent edgePositioned className="race-menu">
-                    <DialogTitle>Menu</DialogTitle>
-                    <DialogDescription className="sr-only">Race actions</DialogDescription>
+                    <DialogTitle>Race menu</DialogTitle>
+                    <DialogDescription>Display, setup, and team controls</DialogDescription><h3 className="menu-section-title">Board &amp; display</h3>
                     <button type="button" className="flex min-h-11 items-center gap-2 rounded border px-3" onClick={() => { setMenuOpen(false); setStatusView(true); }}><Monitor size={18} />Status Board</button>
                     {connected.settings(() => setMenuOpen(false))}
                   </DialogContent>
@@ -1795,14 +1795,14 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                   if (!open) cancelNewPatient();
                 }}
               >
-                <DialogContent className="board-modal">
-                  <DialogTitle>New Patient</DialogTitle>
-                  <DialogDescription className="sr-only">
+                <DialogContent edgePositioned className="board-modal patient-dialog">
+                  <div className="patient-dialog-heading"><span className="dialog-eyebrow">Patient coordination</span><DialogTitle>New Patient</DialogTitle></div>
+                  <DialogDescription className="patient-dialog-description">
                     Patient arrival and assignment
                   </DialogDescription>
                   {newPatientMessage && <p role="alert">{newPatientMessage}</p>}
-                  <form onSubmit={addIncomingPatient} className="editor-form flex flex-col gap-3">
-                    <label>
+                  <form onSubmit={addIncomingPatient} className="editor-form patient-form">
+                    <div className="patient-form-scroll"><fieldset className="patient-form-section"><legend>Patient details</legend><label>
                       Race #
                       <input
                         value={newPatientBib}
@@ -1818,7 +1818,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                       onChoiceChange={setNewPatientComplaintChoice}
                       onOtherChange={setNewPatientOtherComplaint}
                     />
-                    <label>
+                    </fieldset><fieldset className="patient-form-section"><legend>Placement</legend><label>
                       Assign Pod
                       <select
                         value={newPatientAssignPod}
@@ -1839,7 +1839,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                       </select>
                     </label>
                     {connected && !newPatientAssignPod && plannedPodField(newPatientPlannedPod, setNewPatientPlannedPod)}
-                    <label>
+                    </fieldset><fieldset className="patient-form-section"><legend>Triage &amp; notes</legend><label>
                       Triage
                       <select
                         value={newPatientTriage}
@@ -1881,17 +1881,17 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                         className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs outline-none placeholder:text-muted-foreground focus:border-signal"
                       />
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    </fieldset></div><div className="patient-form-actions">
                       <button
                         type="submit"
-                        className="rounded-sm border border-status-open bg-status-open px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-background hover:opacity-90"
+                        className="patient-primary-action"
                       >
                         Add
                       </button>
                       <button
                         type="button"
                         onClick={cancelNewPatient}
-                        className="rounded-sm border border-border px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                        className="patient-secondary-action"
                       >
                         Cancel
                       </button>
@@ -2109,14 +2109,14 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                   if (!open) cancelPatientEdit();
                 }}
               >
-                <DialogContent className="board-modal">
-                  <DialogTitle>Edit Patient</DialogTitle>
-                  <DialogDescription className="sr-only">
+                <DialogContent edgePositioned className="board-modal patient-dialog">
+                  <div className="patient-dialog-heading"><span className="dialog-eyebrow">Patient coordination</span><DialogTitle>Edit Patient</DialogTitle></div>
+                  <DialogDescription className="patient-dialog-description">
                     Patient information and pod assignment
                   </DialogDescription>
                   {editPatient && (
-                    <form onSubmit={savePatientEdit} className="editor-form grid gap-3">
-                      <label>
+                    <form onSubmit={savePatientEdit} className="editor-form patient-form">
+                      <div className="patient-form-scroll"><fieldset className="patient-form-section"><legend>Patient details</legend><label>
                         Race #
                         <input
                           value={editPatientBib}
@@ -2126,38 +2126,16 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                           required
                         />
                       </label>
-                      <label>
-                        Triage
-                        <select
-                          value={editPatientTriage}
-                          onChange={(e) => setEditPatientTriage(e.target.value as Triage)}
-                          aria-label="Triage"
-                          className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs font-semibold outline-none focus:border-signal"
-                        >
-                          {triageOptions.map((triage) => (
-                            <option key={triage} value={triage}>
-                              {triageLabel[triage]}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+
                       <ComplaintField
                         choice={editPatientComplaintChoice}
                         other={editPatientOtherComplaint}
                         onChoiceChange={setEditPatientComplaintChoice}
                         onOtherChange={setEditPatientOtherComplaint}
                       />
-                      <label>
-                        Notes
-                        <input
-                          value={editPatientStatus}
-                          onChange={(e) => setEditPatientStatus(e.target.value)}
-                          placeholder="Notes"
-                          className="min-w-0 rounded-sm border border-border bg-background px-2 py-1.5 text-xs outline-none placeholder:text-muted-foreground focus:border-signal"
-                        />
-                      </label>
-                      <label>
-                        Assign Pod
+
+                      </fieldset><fieldset className="patient-form-section"><legend>Placement</legend><label>
+                      Assign Pod
                         <select
                           value={editPatientPod}
                           onChange={(e) => setEditPatientPod(e.target.value)}
@@ -2187,17 +2165,39 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                         </select>
                       </label>
                       {connected && editPatient.kind === "incoming" && !editPatientPod && plannedPodField(editPatientPlannedPod, setEditPatientPlannedPod)}
-                      <div className="grid grid-cols-2 gap-2">
+                      </fieldset><fieldset className="patient-form-section"><legend>Triage &amp; notes</legend><label>
+                        Triage
+                        <select
+                          value={editPatientTriage}
+                          onChange={(e) => setEditPatientTriage(e.target.value as Triage)}
+                          aria-label="Triage"
+                          className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs font-semibold outline-none focus:border-signal"
+                        >
+                          {triageOptions.map((triage) => (
+                            <option key={triage} value={triage}>
+                              {triageLabel[triage]}
+                            </option>
+                          ))}
+                        </select>
+                      </label><label>
+                        Notes
+                        <input
+                          value={editPatientStatus}
+                          onChange={(e) => setEditPatientStatus(e.target.value)}
+                          placeholder="Notes"
+                          className="min-w-0 rounded-sm border border-border bg-background px-2 py-1.5 text-xs outline-none placeholder:text-muted-foreground focus:border-signal"
+                        />
+                      </label></fieldset></div><div className="patient-form-actions">
                         <button
                           type="submit"
-                          className="rounded-sm border border-status-open bg-status-open px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-background hover:opacity-90"
+                          className="patient-primary-action"
                         >
                           Save
                         </button>
                         <button
                           type="button"
                           onClick={cancelPatientEdit}
-                          className="rounded-sm border border-border px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                          className="patient-secondary-action"
                         >
                           Cancel
                         </button>

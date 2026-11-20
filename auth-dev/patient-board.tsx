@@ -140,14 +140,17 @@ export function PatientBoard({ client, race, onBack }: {
   }) })) : [];
   const settings = (closeMenu: () => void) => <div className="grid gap-2" onClick={event => { if ((event.target as HTMLElement).closest("button")) closeMenu(); }}>
     {canManage && race.state === "active" && <>
+      <h3 className="menu-section-title">Race setup</h3>
       <button className="min-h-11 rounded border px-3" onClick={()=>setPodsOpen(true)}>Add pods</button>
-      <button className="min-h-11 rounded border px-3" onClick={() => setTeamOpen(true)}>Manage Team</button>
       <button className="min-h-11 rounded border px-3" onClick={() => setRenameOpen(true)}>Rename Race</button>
       <button className="min-h-11 rounded border px-3" disabled={!complaintsReady} onClick={() => setComplaintsOpen(true)}>Manage Chief Complaints</button>
+      <h3 className="menu-section-title">Team &amp; access</h3>
+      <button className="min-h-11 rounded border px-3" onClick={() => setTeamOpen(true)}>Manage Team</button>
     </>}
+    <h3 className="menu-section-title">Navigation</h3>
     <button disabled={busy} onClick={() => { void refresh(); void loadComplaints(); }} className="flex min-h-11 items-center gap-2 rounded border px-3"><RefreshCw size={18}/>Refresh board</button>
     <button disabled={busy} onClick={onBack} className="flex min-h-11 items-center gap-2 rounded border px-3"><ArrowLeft size={18}/>Back to races</button>
-    {race.role === "owner" && <div className="mt-2 border-t pt-3"><button disabled={busy} className="min-h-11 w-full rounded border border-destructive px-3 text-destructive" onClick={() => setEndOpen(true)}>End Race</button></div>}
+    {race.role === "owner" && <div className="menu-danger-section"><h3 className="menu-section-title">Data &amp; race closure</h3><p className="mb-3 text-xs text-muted-foreground">Clear patient data or close the race. Confirmation required.</p><button disabled={busy} className="min-h-11 w-full rounded border border-destructive px-3 text-destructive" onClick={() => setEndOpen(true)}>End Race</button></div>}
   </div>;
   return <section className="grid gap-3">
     <div className="flex gap-3">
