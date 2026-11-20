@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Menu, Monitor, Pencil, Settings, Trash2, X } from "lucide-react";
+import { ComplaintPicker } from "@/components/complaint-picker";
 import { defaultComplaints } from "@/lib/complaints";
 import type { ConnectedBoard } from "@/lib/connected-board";
 import { StatusBoard } from "@/components/status-board";
@@ -389,22 +390,7 @@ function ComplaintField({
   const available = useContext(ComplaintOptionsContext);
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <label>
-        Chief complaint
-        <select
-          value={choice}
-          onChange={(e) => onChoiceChange(e.target.value)}
-          aria-label="Chief complaint"
-          className="min-w-0 rounded-sm border border-border bg-background px-2 py-1.5 text-xs outline-none focus:border-signal"
-        >
-          <option value="">Not specified</option>
-          {([...new Set([...available, ...(choice ? [choice] : [])])]).sort((a,b) => a === "Other" ? 1 : b === "Other" ? -1 : a.localeCompare(b)).map((complaint) => (
-            <option key={complaint} value={complaint}>
-              {complaint}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ComplaintPicker value={choice} options={available} onChange={onChoiceChange} />
       {choice === otherComplaintValue && (
         <label>
           Other complaint
