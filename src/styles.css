@@ -295,3 +295,11 @@
   .patient-dialog { inset: 0.5rem; width: calc(100% - 1rem); max-height: calc(100dvh - 1rem); }
   .patient-form-actions { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 }
+.patient-extra-details { border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem; }
+.patient-extra-details summary { cursor: pointer; min-height: 44px; font-size: 0.875rem; font-weight: 600; }
+.patient-extra-details summary span { display: block; padding-top: 0.25rem; font-size: 0.75rem; font-weight: 400; color: var(--muted-foreground); }
+.intake-actions { grid-template-columns: 1fr 0.8fr 1.4fr; gap: 0.5rem; }
+.intake-actions button { padding: 0.65rem 0.4rem; font-size: 0.875rem; }
+.intake-actions .intake-add { order: 2; }
+.intake-actions .patient-primary-action { order: 3; }
+.patient-form-actions button:disabled { opacity: 0.5; cursor: wait; }

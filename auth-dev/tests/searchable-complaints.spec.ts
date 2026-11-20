@@ -50,7 +50,23 @@ test("searchable complaints support intake, editing, custom entries and clearing
   await expect(picker).toHaveAttribute("aria-expanded","true");
   await picker.fill("unselected query"); await picker.press("Escape");
   await expect(picker).toHaveValue("Chest Pain");
-  await dialog.getByRole("button",{name:"Add",exact:true}).click();
+  await expect(dialog.getByLabel("Notes",{exact:true})).toBeHidden();
+  await dialog.getByText("Additional details",{exact:false}).click();
+  await dialog.getByLabel("Notes",{exact:true}).fill("Do not carry forward");
+  await dialog.getByLabel("Source",{exact:true}).fill("Course");
+  await dialog.getByLabel("ETA",{exact:true}).fill("5 minutes");
+  await dialog.getByLabel("Triage",{exact:true}).selectOption("delayed");
+  await dialog.getByRole("button",{name:"Add & Next",exact:true}).click();
+  await expect(dialog.getByLabel("Race #",{exact:true})).toHaveValue("");
+  await expect(dialog.getByLabel("Race #",{exact:true})).toBeFocused();
+  await expect(picker).toHaveValue("");
+  await expect(dialog.getByLabel("Triage",{exact:true})).toHaveValue("untriaged");
+  await expect(dialog.getByLabel("Notes",{exact:true})).toBeHidden();
+  await expect(dialog.getByLabel("Notes",{exact:true})).toHaveValue("");
+  await expect(dialog.getByLabel("Source",{exact:true})).toHaveValue("");
+  await expect(dialog.getByLabel("ETA",{exact:true})).toHaveValue("");
+  await page.screenshot({path:"test-results/fast-intake-phone.png",fullPage:true});
+  await dialog.getByRole("button",{name:"Cancel",exact:true}).click();
   await expect(dialog).toHaveCount(0);
   expect(saves[0].p_details.complaint).toBe("Chest Pain");
 

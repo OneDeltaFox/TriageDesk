@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Menu, Monitor, Pencil, Settings, Trash2, X } from "lucide-react";
 import { ComplaintPicker } from "@/components/complaint-picker";
 import { defaultComplaints } from "@/lib/complaints";
@@ -922,6 +922,11 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
   const [newPodCount, setNewPodCount] = useState("1");
   const [newBedCount, setNewBedCount] = useState(String(BEDS_PER_POD));
   const [addingPatient, setAddingPatient] = useState(false);
+  const [intakeSequence, setIntakeSequence] = useState(0);
+  const [intakeSaving, setIntakeSaving] = useState(false);
+  const intakeLock = useRef(false);
+  const intakeBibInput = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (addingPatient) intakeBibInput.current?.focus(); }, [intakeSequence, addingPatient]);
   const [newPatientBib, setNewPatientBib] = useState("");
   const [newPatientTriage, setNewPatientTriage] = useState<Triage>("untriaged");
   const [newPatientComplaintChoice, setNewPatientComplaintChoice] = useState("");
@@ -1115,6 +1120,15 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
 
   const addIncomingPatient = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (intakeLock.current) return;
+    const keepOpen = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "next";
+    const finish = () => {
+      resetPatientForm();
+      if (keepOpen) { setIntakeSequence(n => n + 1); setNewPatientMessage("Patient added. Ready for the next patient."); }
+      else setAddingPatient(false);
+    };
+    intakeLock.current = true; setIntakeSaving(true);
+    try {
 
     const bib = newPatientBib.trim();
     const complaint = complaintFromSelection(newPatientComplaintChoice, newPatientOtherComplaint);
@@ -1141,7 +1155,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
       const target = pods.find(pod => pod.id === newPatientAssignPod && !pod.closed)?.beds.find(bed => bed.status === "open");
       if (newPatientAssignPod && !target) { setNewPatientMessage("Selected pod has no available bed. Refresh and choose again."); return; }
       if (await connected.run({ action: "save", details: patient, ...(target ? { bed: target.id } : {}) })) {
-        resetPatientForm(); setAddingPatient(false);
+        finish();
       } else setNewPatientMessage("Save not confirmed. Close this window, refresh the board, and check before retrying.");
       return;
     }
@@ -1172,8 +1186,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
           })),
         );
 
-        resetPatientForm();
-        setAddingPatient(false);
+        finish();
         return;
       }
 
@@ -1183,8 +1196,8 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
     }
 
     setIncomingQueue((prev) => [patient, ...prev]);
-    resetPatientForm();
-    setAddingPatient(false);
+    finish();
+    } finally { intakeLock.current = false; setIntakeSaving(false); }
   };
 
   const removePod = (id: string) => {
@@ -1270,6 +1283,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
   };
 
   const cancelNewPatient = () => {
+    if (intakeLock.current) return;
     const dirty =
       newPatientBib ||
       newPatientComplaintChoice ||
@@ -1803,11 +1817,12 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                   <DialogDescription className="patient-dialog-description">
                     Patient arrival and assignment
                   </DialogDescription>
-                  {newPatientMessage && <p role="alert">{newPatientMessage}</p>}
-                  <form onSubmit={addIncomingPatient} className="editor-form patient-form">
-                    <div className="patient-form-scroll"><fieldset className="patient-form-section"><legend>Patient details</legend><label>
+                  {newPatientMessage && <p role="status" className="px-5 py-2 text-sm">{newPatientMessage}</p>}
+                  <form key={intakeSequence} onSubmit={addIncomingPatient} className="editor-form patient-form">
+                    <fieldset disabled={intakeSaving} className="patient-form-scroll"><fieldset className="patient-form-section"><legend>Patient details</legend><label>
                       Race #
                       <input
+                        ref={intakeBibInput}
                         value={newPatientBib}
                         onChange={(e) => setNewPatientBib(e.target.value)}
                         placeholder="Race #"
@@ -1842,7 +1857,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                       </select>
                     </label>
 
-                    </fieldset><fieldset className="patient-form-section"><legend>Triage &amp; notes</legend><label>
+                    </fieldset><fieldset className="patient-form-section"><legend>Triage</legend><label>
                       Triage
                       <select
                         value={newPatientTriage}
@@ -1857,7 +1872,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                         ))}
                       </select>
                     </label>
-                    <label>
+                    </fieldset><details className="patient-extra-details"><summary>Additional details <span>Notes, source &amp; ETA</span></summary><div className="grid gap-3 pt-3"><label>
                       Notes
                       <input
                         value={newPatientStatus}
@@ -1884,20 +1899,23 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                         className="rounded-sm border border-border bg-background px-2 py-1.5 text-xs outline-none placeholder:text-muted-foreground focus:border-signal"
                       />
                     </label>
-                    </fieldset></div><div className="patient-form-actions">
+                    </div></details></fieldset><div className="patient-form-actions intake-actions">
                       <button
                         type="submit"
-                        className="patient-primary-action"
+                        disabled={intakeSaving}
+                        className="patient-secondary-action intake-add"
                       >
                         Add
                       </button>
                       <button
                         type="button"
+                        disabled={intakeSaving}
                         onClick={cancelNewPatient}
                         className="patient-secondary-action"
                       >
                         Cancel
                       </button>
+                      <button type="submit" value="next" disabled={intakeSaving} className="patient-primary-action">{intakeSaving ? "Saving…" : "Add & Next"}</button>
                     </div>
                   </form>
                 </DialogContent>
