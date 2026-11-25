@@ -306,3 +306,39 @@
 .pod-incoming-badge { display: inline-block; margin: 0.3rem 0; border: 1px solid #38bdf8; border-radius: 6px; background: #0c4a6e; color: #fff; padding: 0.2rem 0.5rem; font-size: 0.75rem; font-weight: 700; line-height: 1.4; }
 .status-incoming-badge { margin-bottom: 0.5rem; font-size: 1rem; }
 @media (min-width: 640px) { .status-incoming-badge { font-size: 1.25rem; } }
+
+/* Arrange the operational board by available space, including tablet rotation. */
+.working-board-layout { display: grid; flex: 1; min-height: 0; gap: 1rem; grid-template-areas: "incoming" "pods" "dispositions"; grid-template-columns: minmax(0,1fr); align-items: start; }
+.working-incoming { grid-area: incoming; }
+.working-pods { grid-area: pods; }
+.working-dispositions { grid-area: dispositions; }
+.pod-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+@media (min-width: 768px) {
+  .pod-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .patient-dialog { width: min(52rem,calc(100vw - 3rem)); max-width: 52rem; }
+  .patient-form-scroll { grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; }
+  .patient-form-scroll > .patient-form-section:first-child { grid-row: span 2; }
+  .patient-extra-details { grid-column: 1 / -1; }
+  .patient-extra-details > div { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .patient-form-actions { justify-content: end; grid-template-columns: 9rem 11rem; }
+  .intake-actions { grid-template-columns: 8rem 8rem 11rem; }
+  .race-menu { width: min(30rem,calc(100vw - 2rem)); max-width: 30rem; }
+}
+@media (min-width: 1024px) {
+  .working-board-layout { grid-template-columns: 260px minmax(0,1fr); grid-template-areas: "incoming pods" "incoming dispositions"; }
+  .pod-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .working-incoming .incoming-cards { display: flex; }
+  .incoming-toggle-icon { display: none; }
+}
+@media (min-width: 1440px) {
+  .working-board-layout { grid-template-columns: 260px minmax(0,1fr) 210px; grid-template-areas: "incoming pods dispositions"; }
+  .working-dispositions { display: flex; flex-direction: column; }
+}
+@media (min-width: 1800px) { .pod-grid { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+@media (max-width: 767px) {
+  .patient-dialog { inset: 0; width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .patient-form { flex: 1; }
+  .patient-form-scroll { flex: 1; align-content: start; }
+  .patient-dialog-heading { padding-top: max(1.25rem,env(safe-area-inset-top)); }
+  .patient-form-actions { padding-bottom: max(1rem,env(safe-area-inset-bottom)); }
+}
