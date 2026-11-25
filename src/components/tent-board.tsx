@@ -1608,6 +1608,10 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
       <span className="text-xs text-muted-foreground">Plans a destination only. No bed is reserved and no medical timer starts.</span>
     </label>
   );
+  const intakeRaceNumber = newPatientBib.trim().toLowerCase();
+  const intakeExistingIncoming = intakeRaceNumber ? incomingQueue.find(patient => patient.bib.trim().toLowerCase() === intakeRaceNumber) : undefined;
+  const intakeExistingPod = intakeRaceNumber ? pods.find(pod => pod.beds.some(bed => !bed.reserved && bed.bib?.trim().toLowerCase() === intakeRaceNumber)) : undefined;
+  const intakeExistingBed = intakeExistingPod?.beds.find(bed => !bed.reserved && bed.bib?.trim().toLowerCase() === intakeRaceNumber);
   const duplicateIncoming = incomingQueue.find(patient => connected?.duplicateVisitId ? patient.id === connected.duplicateVisitId : !!duplicateBib && patient.bib.trim().toLowerCase() === duplicateBib.toLowerCase());
   const duplicatePod = pods.find(pod => pod.beds.some(bed => !bed.reserved && (connected?.duplicateVisitId ? bed.visitId === connected.duplicateVisitId : !!duplicateBib && bed.bib?.trim().toLowerCase() === duplicateBib.toLowerCase())));
   const duplicateBed = duplicatePod?.beds.find(bed => !bed.reserved && (connected?.duplicateVisitId ? bed.visitId === connected.duplicateVisitId : !!duplicateBib && bed.bib?.trim().toLowerCase() === duplicateBib.toLowerCase()));
@@ -1830,6 +1834,17 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                         required
                       />
                     </label>
+                    {(intakeExistingIncoming || intakeExistingBed) && <div role="status" className="rounded-lg border border-signal/60 bg-signal/10 p-3 text-sm">
+                      <p className="font-semibold">Race # {newPatientBib.trim()} is already on the board.</p>
+                      <p className="mt-1 text-muted-foreground">{intakeExistingIncoming ? "Currently in Incoming." : `Currently in ${intakeExistingPod?.name}, bed ${intakeExistingBed?.label}.`}</p>
+                      <button type="button" className="mt-3 min-h-11 w-full rounded-lg bg-signal px-3 font-semibold text-background" onClick={() => {
+                        setAddingPatient(false);
+                        resetPatientForm();
+                        setNewPatientMessage("");
+                        if (intakeExistingIncoming) startIncomingEdit(intakeExistingIncoming);
+                        else if (intakeExistingPod && intakeExistingBed) startPatientEdit(intakeExistingPod.id, intakeExistingBed);
+                      }}>Open existing patient</button>
+                    </div>}
                     <ComplaintField
                       choice={newPatientComplaintChoice}
                       other={newPatientOtherComplaint}

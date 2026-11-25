@@ -82,6 +82,17 @@ test("connected intake, assignment, edit, disposition and turnover use RPCs with
   expect(snapshot.visits[0].medical_started_at).toBeNull();
   expect(snapshot.placements).toHaveLength(0);
   await page.getByRole("button",{name:"New Patient",exact:true}).click();
+  await modal.getByLabel("Race #",{exact:true}).fill(" test-1 ");
+  await expect(modal.getByText("Currently in Incoming.",{exact:true})).toBeVisible();
+  expect(saves).toHaveLength(1);
+  await modal.getByRole("button",{name:"Open existing patient",exact:true}).click();
+  await expect(modal.getByLabel("Race #",{exact:true})).toHaveValue("TEST-1");
+  await modal.getByRole("button",{name:"Cancel",exact:true}).click();
+  await page.getByRole("button",{name:"New Patient",exact:true}).click();
+  await modal.getByLabel("Race #",{exact:true}).fill("test-1");
+  await expect(modal.getByText("Currently in Incoming.",{exact:true})).toBeVisible();
+  await modal.getByLabel("Race #",{exact:true}).fill("test-12");
+  await expect(modal.getByText("Currently in Incoming.",{exact:true})).toHaveCount(0);
   await modal.getByLabel("Race #",{exact:true}).fill("test-1");
   await modal.getByRole("button",{name:"Add",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Patient already on board"})).toBeVisible();
