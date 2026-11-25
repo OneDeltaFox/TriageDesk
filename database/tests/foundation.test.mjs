@@ -105,6 +105,7 @@ test('database foundation', async (t) => {
     const read=async()=>(await query('select v.*,d.planned_pod_id from race_private.visits v join race_private.visit_details d on d.visit_id=v.id where v.id=$1',[v])).rows[0];
     let row=await read();
     assert.equal(row.planned_pod_id,p);
+    assert.deepEqual((await asUser(owner,'select public.viewer_status($1) s',[r])).rows[0].s.incoming_by_pod,{[p]:1});
     assert.equal(row.medical_started_at,null);
     assert.ok(row.notified_at);
     assert.equal((await query('select * from race_private.placements where visit_id=$1',[v])).rows.length,0);
@@ -439,7 +440,7 @@ test('database foundation', async (t) => {
   await t.test('viewer display endpoint is member-only and strictly projected', async()=>{
     for (const user of [owner,editor,viewer]) {
       const s=(await asUser(user,'select public.viewer_status($1) s',[race])).rows[0].s;
-      assert.deepEqual(Object.keys(s).sort(),['beds','metrics','pods']);
+      assert.deepEqual(Object.keys(s).sort(),['beds','incoming_by_pod','metrics','pods']);
       assert.deepEqual(Object.keys(s.beds[0]).sort(),['bed_id','bib','complaint','label','medical_started_at','pod_id','pool_started_at','reserved','status','triage']);
       assert.equal(s.metrics.incoming,2);
       assert.ok(!JSON.stringify(s).includes('Private test note'));

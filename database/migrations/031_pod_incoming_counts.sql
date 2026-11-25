@@ -13,11 +13,11 @@ begin
       from race_private.status_board(p_race) s),
     -- Aggregate preassignments only; no incoming identities are exposed.
     'incoming_by_pod', (select coalesce(jsonb_object_agg(c.planned_pod_id::text,c.total), '{}'::jsonb)
-      from (select v.planned_pod_id, count(*) as total
-        from race_private.visits v
-        where v.race_id=p_race and v.planned_pod_id is not null
+      from (select d.planned_pod_id, count(*) as total
+        from race_private.visits v join race_private.visit_details d on d.visit_id=v.id
+        where v.race_id=p_race and d.planned_pod_id is not null
           and v.medical_started_at is null and v.dispositioned_at is null
-        group by v.planned_pod_id) c),
+        group by d.planned_pod_id) c),
     'metrics', (select jsonb_build_object(
       'census', count(*) filter(where v.medical_started_at is not null and v.dispositioned_at is null),
       'incoming', count(*) filter(where v.medical_started_at is null and v.dispositioned_at is null),
