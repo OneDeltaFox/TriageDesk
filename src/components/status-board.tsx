@@ -43,6 +43,7 @@ export function StatusBoard({
   pods,
   eventName,
   incomingCount,
+  incomingByPod = {},
   bedTone,
   onClose,
   metrics,
@@ -52,6 +53,7 @@ export function StatusBoard({
   pods: Pod[];
   eventName: string;
   incomingCount: number;
+  incomingByPod?: Record<string, number>;
   bedTone: (bed: Bed) => string;
   onClose: () => void;
   metrics?: { census: number; seen: number; discharged: number; ems: number; other: number };
@@ -180,6 +182,7 @@ export function StatusBoard({
                   : `${pod.beds.filter((bed) => bed.bib).length}/${pod.beds.length}`}
               </span>
             </div>
+            {(incomingByPod[pod.id] ?? 0) > 0 && <p className="pod-incoming-badge status-incoming-badge">{incomingByPod[pod.id]} incoming</p>}
             <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
               {[...pod.beds].sort((a,b) => a.label.localeCompare(b.label, undefined, { numeric: true })).map((bed) => (
                 <div key={bed.id} className="min-w-0">

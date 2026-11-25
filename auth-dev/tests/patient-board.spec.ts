@@ -18,11 +18,14 @@ for (const state of ["open", "full", "closed"] as const) {
       await route.fulfill({json:2});
     });
     await page.goto("/"); await page.getByRole("button",{name:"Open board"}).click();
+    await expect(page.locator("article").getByText("1 incoming",{exact:true})).toBeVisible();
     const arrive=page.getByRole("button",{name:"Arrive patient 123 in Pod 1"});
     if(state==="open") {
       await page.screenshot({path:"test-results/incoming-arrival-pill-phone.png",fullPage:true});
+      await page.locator("article").screenshot({path:"test-results/incoming-count-working.png"});
       await arrive.click();
       await expect(arrive).toHaveCount(0);
+      await expect(page.locator("article").getByText("1 incoming",{exact:true})).toHaveCount(0);
       await expect(page.getByRole("button",{name:"Edit patient 123",exact:true})).toBeVisible();
       expect(moves).toBe(1);
       await expect(page.getByRole("dialog")).toHaveCount(0);

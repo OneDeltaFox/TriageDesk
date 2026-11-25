@@ -7,7 +7,7 @@ import { useAutoRefresh } from "./auto-refresh";
 
 type DisplayBed = { bed_id: string; bib: string | null; triage: Triage | null; complaint: string | null;
   medical_started_at: string | null; pool_started_at: string | null; reserved: boolean };
-type Snapshot = { pods: Pod[]; beds: DisplayBed[]; metrics: { census: number; incoming: number; seen: number; discharged: number; ems: number; other: number } };
+type Snapshot = { incoming_by_pod?: Record<string, number>; pods: Pod[]; beds: DisplayBed[]; metrics: { census: number; incoming: number; seen: number; discharged: number; ems: number; other: number } };
 function tone(bed: Bed) {
   if (bed.status === "cleaning") return "bg-status-cleaning/40 border-status-cleaning text-muted-foreground";
   if (bed.status === "open") return "bg-status-open/15 border-status-open/50 text-status-open";
@@ -70,6 +70,6 @@ export function RaceLayout({ client, race, onBack }: {
       {error ? <p role="alert">Status board unavailable. Retrying automatically. Migration 010 and race access are required.</p> : <p role="status" className="text-sm text-muted-foreground">{updated ? `Auto-update on · Updated ${updated}` : "Loading status board..."}</p>}
     </div>
     {snapshot && <StatusBoard pods={pods} eventName={race.name} incomingCount={snapshot.metrics.incoming}
-      metrics={snapshot.metrics} poolStartedAt={poolStarts} bedTone={tone} onClose={onBack} backLabel="Back to races" />}
+      incomingByPod={snapshot.incoming_by_pod ?? {}} metrics={snapshot.metrics} poolStartedAt={poolStarts} bedTone={tone} onClose={onBack} backLabel="Back to races" />}
   </section>;
 }
