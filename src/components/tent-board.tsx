@@ -467,12 +467,14 @@ export function PodCard({
   onEditPatient,
   readOnly = false,
   layoutLocked = false,
+  incomingCount = 0,
 }: {
   pod: Pod;
   selected: boolean;
   setup: boolean;
   readOnly?: boolean;
   layoutLocked?: boolean;
+  incomingCount?: number;
   onSelect: () => void;
   onEdit: () => void;
   onEditPatient: (podId: string, bed: Bed) => void;
@@ -491,6 +493,7 @@ export function PodCard({
           className="min-h-11 min-w-0 flex-1 text-left"
         >
           <h3 className="break-words text-xs font-semibold sm:text-sm">{pod.name}</h3>
+          {incomingCount > 0 && <span className="pod-incoming-badge">{incomingCount} incoming</span>}
           <p className="text-[10px] text-muted-foreground">
             {pod.closed
               ? "Closed"
@@ -1634,6 +1637,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
         pods={pods}
         eventName={eventName}
         incomingCount={incomingQueue.length}
+        incomingByPod={Object.fromEntries(pods.map(pod => [pod.id, incomingQueue.filter(patient => patient.plannedPodId === pod.id).length]))}
         metrics={{ census: totals.currentCensus, seen: totals.seenToday, discharged: dispositions.filter(d => d.category === "discharged").length, ems: dispositions.filter(d => d.category === "ems").length, other: dispositions.filter(d => d.category === "other").length }}
         bedTone={bedTileTone}
         onClose={() => setStatusView(false)}
@@ -2115,6 +2119,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                     readOnly={connected?.readOnly ?? false}
                     key={pod.id}
                     pod={pod}
+                    incomingCount={incomingQueue.filter(patient => patient.plannedPodId === pod.id).length}
                     selected={selectedPod === pod.id}
                     setup={setup}
                     onSelect={() => setSelectedPod(selectedPod === pod.id ? null : pod.id)}

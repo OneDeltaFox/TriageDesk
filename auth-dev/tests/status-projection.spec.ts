@@ -21,12 +21,14 @@ test("projection board fits race numbers and compact pods on desktop and mobile"
     pool_started_at: index >= 16 ? new Date(Date.now()-120000).toISOString() : null,
   })));
   await page.route("**/rest/v1/rpc/my_races", route => route.fulfill({ json: [{ id: "race", name: "Projection Preview", role: "viewer", state: "active" }] }));
-  await page.route("**/rest/v1/rpc/viewer_status", route => route.fulfill({ json: { pods, beds, metrics: { census: 36, incoming: 2, seen: 48, discharged: 9, ems: 2, other: 1 } } }));
+  await page.route("**/rest/v1/rpc/viewer_status", route => route.fulfill({ json: { pods, beds, incoming_by_pod: {"pod-0":2}, metrics: { census: 36, incoming: 2, seen: 48, discharged: 9, ems: 2, other: 1 } } }));
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto("/");
   await page.getByRole("button", { name: "Open board" }).click();
   const board = page.getByTestId("status-board");
   await expect(board).toBeVisible();
+  await expect(board.locator("main > section").first().getByText("2 incoming",{exact:true})).toBeVisible();
+  await expect(board.locator("main > section").nth(1).getByText(/incoming/)).toHaveCount(0);
   await expect(board.locator("main > section").first()).toHaveCSS("background-color", "rgb(249, 115, 22)");
   await expect(board.locator("main > section").first()).toHaveCSS("color", "rgb(0, 0, 0)");
   await expect(board.locator('main > section').nth(8)).toHaveCSS("background-color", "rgb(234, 179, 8)");
@@ -38,6 +40,7 @@ test("projection board fits race numbers and compact pods on desktop and mobile"
     await expect.poll(() => board.locator(".status-race-number").evaluateAll(elements =>
       elements.every(element => element.scrollWidth <= element.clientWidth+1))).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (width === 375) await board.locator("main > section").first().screenshot({path:"test-results/incoming-count-status.png"});
     await page.screenshot({ path: `test-results/projection-${name}.png`, fullPage: true });
   }
   expect(errors).toEqual([]);

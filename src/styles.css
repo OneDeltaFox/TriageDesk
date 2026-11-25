@@ -303,3 +303,6 @@
 .intake-actions .intake-add { order: 2; }
 .intake-actions .patient-primary-action { order: 3; }
 .patient-form-actions button:disabled { opacity: 0.5; cursor: wait; }
+.pod-incoming-badge { display: inline-block; margin: 0.3rem 0; border: 1px solid #38bdf8; border-radius: 6px; background: #0c4a6e; color: #fff; padding: 0.2rem 0.5rem; font-size: 0.75rem; font-weight: 700; line-height: 1.4; }
+.status-incoming-badge { margin-bottom: 0.5rem; font-size: 1rem; }
+@media (min-width: 640px) { .status-incoming-badge { font-size: 1.25rem; } }
