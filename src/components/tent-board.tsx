@@ -511,7 +511,7 @@ export function PodCard({
         </button>}
       </div>
       <div
-        className={`grid gap-1.5 ${pod.beds.length === 1 ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-4"}`}
+        className={`grid gap-1.5 ${pod.beds.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}
       >
         {pod.beds.map((bed) => (
           <BedTile
@@ -1798,8 +1798,8 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
             </div>
           </header>
 
-          <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
-            <aside className="order-1 flex min-w-0 flex-col gap-2 border-t border-border py-2 sm:order-2 xl:order-1">
+          <main className="working-board-layout">
+            <aside className="working-incoming flex min-w-0 flex-col gap-2 border-t border-border py-2">
               <button
                 type="button"
                 onClick={() => setIncomingExpanded((open) => !open)}
@@ -1807,7 +1807,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                 className="flex min-h-11 items-center justify-between border-b border-border text-left text-sm font-bold"
               >
                 <span>Incoming ({incomingQueue.length})</span>
-                <span className="xl:hidden">{incomingExpanded ? "−" : "+"}</span>
+                <span className="incoming-toggle-icon">{incomingExpanded ? "−" : "+"}</span>
               </button>
               {newPatientMessage && (
                 <p className="rounded-sm border border-signal/60 bg-signal/10 px-2 py-1 text-[11px] font-semibold text-foreground">
@@ -1939,7 +1939,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                   </form>
                 </DialogContent>
               </Dialog>
-              <div className={`flex-col gap-2 ${incomingExpanded ? "flex" : "hidden xl:flex"}`}>
+              <div className={`incoming-cards flex-col gap-2 ${incomingExpanded ? "flex" : "hidden"}`}>
                 {incomingQueue.length === 0 && (
                   <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                     Incoming queue clear
@@ -1962,7 +1962,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
               </div>
             </aside>
 
-            <section className="order-2 flex min-w-0 flex-col gap-3 sm:order-1 xl:order-2">
+            <section className="working-pods flex min-w-0 flex-col gap-3">
               {setup && (
                 <div>
                   <button
@@ -2112,7 +2112,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
                   </DialogContent>
                 </Dialog>
               )}
-              <div className="pod-grid grid min-w-0 grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3">
+              <div className="pod-grid grid min-w-0 gap-2">
                 {pods.map((pod) => (
                   <PodCard
                     layoutLocked={Boolean(connected) && !connected?.onEditPod}
@@ -2262,7 +2262,7 @@ export function TentBoard({ connected }: { connected?: ConnectedBoard } = {}) {
               ) : null}
             </section>
 
-            <aside className="order-3 grid min-w-0 grid-cols-3 content-start gap-2 border-t border-border py-2 xl:flex xl:flex-col">
+            <aside className="working-dispositions grid min-w-0 grid-cols-3 content-start gap-2 border-t border-border py-2">
               <h2 className="col-span-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Disposition
               </h2>
