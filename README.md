@@ -1,4 +1,4 @@
-# Race Tent Command
+# TriageDesk
 
 ## [Open App](https://onedeltafox.github.io/tent-flow-buddy/)
 
